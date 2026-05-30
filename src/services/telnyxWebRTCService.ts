@@ -3,7 +3,7 @@ import path from 'path';
 import { config } from '../config';
 
 const TELNYX_API = 'https://api.telnyx.com/v2';
-const CRED_CACHE = path.join(process.cwd(), 'backend', 'data', 'webrtc_credential.json');
+const CRED_CACHE = path.join(process.cwd(), 'data', 'webrtc_credential.json');
 
 interface CachedCredential {
   id: string;

@@ -1,12 +1,28 @@
 # Flowcheq Backend
 
-Express API for the Flowcheq frontend. Handles contacts, conversations, SMS (Telnyx), calls, WebRTC tokens, and n8n voice webhooks. All secrets live in `.env` at the repo root — the frontend never reads env vars.
+Express API for the Flowcheq frontend. Handles contacts, conversations, SMS (Telnyx), calls, WebRTC tokens, and n8n voice webhooks. All secrets live in `backend/.env` (standalone repo: `.env` next to this README).
+
+## Deploy (Coolify)
+
+| Setting | Value |
+|---------|--------|
+| Dockerfile | `Dockerfile` |
+| Port | `3000` |
+| Health check | `/api/health` |
+
+Copy `/.env.example` → Coolify **Environment**. Set `APP_URL` to this service's public URL and `FRONTEND_URL` to the frontend domain.
+
+```bash
+docker build -t flowcheq-backend .
+docker run -p 3000:3000 --env-file .env flowcheq-backend
+```
 
 ## Run standalone
 
 ```bash
-cp .env.example ../.env   # or cp backend/.env.example ../.env
-npm run dev:backend       # http://localhost:3000
+cp .env.example .env
+npm install
+npm run dev               # http://localhost:3000
 ```
 
 ## Run with frontend (dev)
@@ -42,7 +58,7 @@ Voice webhooks require header `x-api-key: WEBHOOK_SECRET`.
 | `TELNYX_*` | SMS + voice + WebRTC |
 | `WEBHOOK_SECRET` | n8n voice webhook auth |
 
-See `backend/.env.example` for the full list.
+See `.env.example` in this directory for the full list.
 
 ## Telnyx setup
 
