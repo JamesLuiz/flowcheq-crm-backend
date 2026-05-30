@@ -6,11 +6,11 @@ async function main() {
   await connectMongo();
   const app = createApp();
   app.listen(config.port, '0.0.0.0', () => {
-    console.log(`[Flowcheq Backend] http://0.0.0.0:${config.port}`);
+    console.log(`[Flowcheq CRM Backend] http://0.0.0.0:${config.port}`);
   });
 }
 
 main().catch((err) => {
-  console.error('[Flowcheq Backend] Failed to start:', err);
+  console.error('[Flowcheq CRM Backend] Failed to start:', err);
   process.exit(1);
 });

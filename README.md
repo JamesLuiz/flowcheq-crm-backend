@@ -1,8 +1,12 @@
-# Flowcheq Backend
+# Flowcheq CRM Backend
 
-Express API for the Flowcheq frontend. Handles contacts, conversations, SMS (Telnyx), calls, WebRTC tokens, and n8n voice webhooks. All secrets live in `backend/.env` (standalone repo: `.env` next to this README).
+Express API for the Flowcheq messaging frontend. Handles contacts, conversations, SMS (Telnyx), calls, WebRTC tokens, and n8n voice webhooks.
+
+**Repo:** https://github.com/JamesLuiz/flowcheq-crm-backend
 
 ## Deploy (Coolify)
+
+Connect Coolify to `JamesLuiz/flowcheq-crm-backend`.
 
 | Setting | Value |
 |---------|--------|
@@ -10,14 +14,14 @@ Express API for the Flowcheq frontend. Handles contacts, conversations, SMS (Tel
 | Port | `3000` |
 | Health check | `/api/health` |
 
-Copy `/.env.example` → Coolify **Environment**. Set `APP_URL` to this service's public URL and `FRONTEND_URL` to the frontend domain.
+Copy `.env.example` → Coolify **Environment**. Set `APP_URL` to this service's public URL and `FRONTEND_URL` to the frontend domain.
 
 ```bash
-docker build -t flowcheq-backend .
-docker run -p 3000:3000 --env-file .env flowcheq-backend
+docker build -t flowcheq-crm-backend .
+docker run -p 3000:3000 --env-file .env flowcheq-crm-backend
 ```
 
-## Run standalone
+## Run locally
 
 ```bash
 cp .env.example .env
@@ -27,11 +31,11 @@ npm run dev               # http://localhost:3000
 
 ## Run with frontend (dev)
 
-```bash
-npm run dev
-```
+From the [flowcheq-messaging](https://github.com/JamesLuiz/flowcheq-messaging) frontend repo:
 
-Starts backend on `:3000` and Vite on `:5173` (frontend proxies `/api` → backend).
+```bash
+npm run dev               # Vite :5173, proxies /api → BACKEND_URL
+```
 
 ## Key endpoints
 
@@ -58,11 +62,11 @@ Voice webhooks require header `x-api-key: WEBHOOK_SECRET`.
 | `TELNYX_*` | SMS + voice + WebRTC |
 | `WEBHOOK_SECRET` | n8n voice webhook auth |
 
-See `.env.example` in this directory for the full list.
+See `.env.example` for the full list.
 
 ## Telnyx setup
 
 1. **SMS** — Messaging profile webhook → `https://YOUR-API/webhook/inbound`
 2. **Voice** — Call Control webhook → `https://YOUR-N8N/webhook/telnyx/events`
 3. Set `TELNYX_API_KEY`, `TELNYX_PHONE_NUMBER`, `TELNYX_CONNECTION_ID` in `.env`
-4. Set `FLOWCHEQ_API_URL` to the **backend** URL and `FLOWCHEQ_WEBHOOK_SECRET` in n8n
+4. Set `FLOWCHEQ_API_URL` to this backend URL and `FLOWCHEQ_WEBHOOK_SECRET` in n8n
