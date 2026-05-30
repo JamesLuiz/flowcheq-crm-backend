@@ -1,0 +1,116 @@
+import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
+
+function prefixedId(prefix: string): string {
+  return `${prefix}_${Math.random().toString(36).substring(2, 11)}`;
+}
+
+const contactSchema = new Schema(
+  {
+    _id: { type: String, default: () => prefixedId('con') },
+    name: { type: String, required: true },
+    phoneNumber: { type: String, required: true, unique: true, index: true },
+    businessName: { type: String, default: '' },
+    location: { type: String, default: '' },
+    tags: { type: [String], default: [] },
+  },
+  {
+    _id: false,
+    versionKey: false,
+    collection: 'contacts',
+    timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
+  }
+);
+
+const conversationSchema = new Schema(
+  {
+    _id: { type: String, default: () => prefixedId('chat') },
+    contactId: { type: String, required: true, index: true },
+    lastMessageAt: { type: Date, default: Date.now, index: true },
+    unreadCount: { type: Number, default: 0 },
+    status: { type: String, enum: ['active', 'archived'], default: 'active', index: true },
+  },
+  {
+    _id: false,
+    versionKey: false,
+    collection: 'conversations',
+    timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
+  }
+);
+
+const messageSchema = new Schema(
+  {
+    _id: { type: String, default: () => prefixedId('msg') },
+    conversationId: { type: String, required: true, index: true },
+    contactId: { type: String, required: true, index: true },
+    direction: { type: String, enum: ['inbound', 'outbound'], required: true },
+    content: { type: String, required: true },
+    contentType: { type: String, enum: ['text', 'html'], default: 'text' },
+    read: { type: Boolean, default: false },
+    providerMessageId: { type: String, default: '' },
+  },
+  {
+    _id: false,
+    versionKey: false,
+    collection: 'messages',
+    timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
+  }
+);
+
+const notificationSchema = new Schema(
+  {
+    _id: { type: String, default: () => prefixedId('ntf') },
+    type: { type: String, enum: ['new_message', 'system', 'call'], required: true },
+    message: { type: String, required: true },
+    read: { type: Boolean, default: false, index: true },
+  },
+  {
+    _id: false,
+    versionKey: false,
+    collection: 'notifications',
+    timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
+  }
+);
+
+/** Shared with ai-voice-system — same `calls` collection; extra CRM fields for Flowcheq UI */
+const callSchema = new Schema(
+  {
+    call_id: { type: String, unique: true, sparse: true, index: true },
+    contact_id: { type: String, index: true },
+    caller_number: { type: String, index: true },
+    direction: { type: String, enum: ['inbound', 'outbound'], default: 'inbound' },
+    status: { type: String, index: true },
+    duration_seconds: { type: Number },
+    telnyx_call_control_id: { type: String },
+    livekit_session_id: { type: String },
+    handled_by: { type: String, enum: ['human', 'ai'] },
+    notes: { type: String },
+    summary: { type: String },
+    lead_score: { type: Number },
+    transcript: { type: String },
+    structured_fields: { type: Schema.Types.Mixed },
+    escalated: { type: Boolean, default: false },
+    escalation_reason: { type: String },
+  },
+  {
+    versionKey: false,
+    collection: 'calls',
+    timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
+  }
+);
+
+export type ContactDoc = InferSchemaType<typeof contactSchema> & { _id: string };
+export type ConversationDoc = InferSchemaType<typeof conversationSchema> & { _id: string };
+export type MessageDoc = InferSchemaType<typeof messageSchema> & { _id: string };
+export type NotificationDoc = InferSchemaType<typeof notificationSchema> & { _id: string };
+export type CallDoc = InferSchemaType<typeof callSchema> & { _id: mongoose.Types.ObjectId };
+
+export const ContactModel = (mongoose.models.FlowcheqContact ||
+  mongoose.model('FlowcheqContact', contactSchema)) as Model<Record<string, unknown>>;
+export const ConversationModel = (mongoose.models.FlowcheqConversation ||
+  mongoose.model('FlowcheqConversation', conversationSchema)) as Model<Record<string, unknown>>;
+export const MessageModel = (mongoose.models.FlowcheqMessage ||
+  mongoose.model('FlowcheqMessage', messageSchema)) as Model<Record<string, unknown>>;
+export const NotificationModel = (mongoose.models.FlowcheqNotification ||
+  mongoose.model('FlowcheqNotification', notificationSchema)) as Model<Record<string, unknown>>;
+export const CallModel = (mongoose.models.FlowcheqCall ||
+  mongoose.model('FlowcheqCall', callSchema)) as Model<Record<string, unknown>>;
