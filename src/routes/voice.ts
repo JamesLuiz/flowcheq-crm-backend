@@ -18,13 +18,21 @@ router.get(
 
 router.get(
   '/webrtc/token',
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (_req, res) => {
     if (!TelnyxWebRTCService.isConfigured()) {
-      res.status(503).json({ error: 'WebRTC not configured. Set TELNYX_WEBRTC_CONNECTION_ID in .env' });
+      res.status(503).json({
+        error: 'WebRTC not configured. Set TELNYX_API_KEY and TELNYX_WEBRTC_CONNECTION_ID in backend/.env',
+      });
       return;
     }
-    const token = await TelnyxWebRTCService.getLoginToken();
-    res.json(token);
+    try {
+      const token = await TelnyxWebRTCService.getLoginToken();
+      res.json(token);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'WebRTC token failed';
+      console.error('[WebRTC] token error:', message);
+      res.status(502).json({ error: message });
+    }
   })
 );
 

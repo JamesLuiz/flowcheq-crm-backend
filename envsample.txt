@@ -1,0 +1,28 @@
+# Flowcheq CRM backend — Coolify Environment tab (or cp .env.example .env)
+
+PORT=3000
+APP_URL=https://api.flowcheq.com
+FRONTEND_URL=https://messaging.flowcheq.com
+
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/messaging
+
+TELNYX_API_KEY=
+TELNYX_PHONE_NUMBER=+1XXXXXXXXXX
+# Messaging profile (portal: Messaging → your profile → ID in URL or API)
+TELNYX_MESSAGING_PROFILE_ID=
+TELNYX_CONNECTION_ID=
+TELNYX_WEBRTC_CONNECTION_ID=
+# TELNYX_WEBRTC_CREDENTIAL_ID=
+# Public URL Telnyx uses for SMS webhooks (defaults to APP_URL)
+# TELNYX_WEBHOOK_BASE_URL=https://api.flowcheq.com
+
+N8N_CALL_ROUTER_WEBHOOK=https://n8n.flowcheq.com/webhook/telnyx/events
+# N8N_OUTBOUND_CALL_WEBHOOK=
+
+WEBHOOK_SECRET=
+
+# Optional
+CORS_ORIGINS=https://messaging.flowcheq.com
+VOICE_API_URL=https://agent.flowcheq.com
+# VOICE_INTERNAL_API_KEY=
+# SMS_SIMULATE_REPLIES=false

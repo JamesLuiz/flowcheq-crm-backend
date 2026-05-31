@@ -15,6 +15,12 @@ export interface SMSResponse {
   error?: string;
 }
 
+function telnyxErrorMessage(data: unknown, fallback: string): string {
+  const err = (data as { errors?: { title?: string; detail?: string; code?: string }[] }).errors?.[0];
+  const parts = [err?.code, err?.title, err?.detail].filter(Boolean);
+  return parts.join(': ') || fallback;
+}
+
 export class SMSService {
   static async sendMessage(
     to: string,
@@ -25,42 +31,47 @@ export class SMSService {
     console.log(`[sms] Sending ${contentType} from ${from} to ${to}`);
 
     const telnyxApiKey = config.telnyx.apiKey;
-    if (telnyxApiKey) {
-      try {
-        const res = await fetch('https://api.telnyx.com/v2/messages', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${telnyxApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: from || config.telnyx.phoneNumber,
-            to,
-            text: content,
-          }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          return {
-            success: true,
-            providerMessageId: (data as { data?: { id?: string } }).data?.id || `tlx_${Date.now()}`,
-            provider: 'telnyx',
-            rawResponse: data,
-          };
-        }
-        throw new Error((data as { errors?: { title?: string }[] }).errors?.[0]?.title || 'Telnyx API Error');
-      } catch (err) {
-        console.error('[sms] Telnyx failed:', (err as Error).message);
-        throw err;
-      }
+    if (!telnyxApiKey) {
+      const simulatedId = `sim_${Math.random().toString(36).substring(2, 11)}`;
+      return {
+        success: true,
+        providerMessageId: simulatedId,
+        provider: 'flowcheq-carrier-simulator',
+      };
     }
 
-    const simulatedId = `sim_${Math.random().toString(36).substring(2, 11)}`;
-    return {
-      success: true,
-      providerMessageId: simulatedId,
-      provider: 'flowcheq-carrier-simulator',
+    const body: Record<string, string> = {
+      from: from || config.telnyx.phoneNumber,
+      to,
+      text: content,
     };
+    if (config.telnyx.messagingProfileId) {
+      body.messaging_profile_id = config.telnyx.messagingProfileId;
+    }
+
+    try {
+      const res = await fetch('https://api.telnyx.com/v2/messages', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${telnyxApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        return {
+          success: true,
+          providerMessageId: (data as { data?: { id?: string } }).data?.id || `tlx_${Date.now()}`,
+          provider: 'telnyx',
+          rawResponse: data,
+        };
+      }
+      throw new Error(telnyxErrorMessage(data, 'Telnyx SMS API error'));
+    } catch (err) {
+      console.error('[sms] Telnyx failed:', (err as Error).message);
+      throw err;
+    }
   }
 
   static normalizeInbound(rawPayload: Record<string, unknown>, provider: 'twilio' | 'telnyx' | 'generic'): InboundSMSPayload {

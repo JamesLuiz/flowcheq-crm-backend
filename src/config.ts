@@ -29,6 +29,7 @@ export const config = {
     apiKey: process.env.TELNYX_API_KEY || '',
     phoneNumber: process.env.TELNYX_PHONE_NUMBER || '',
     connectionId: process.env.TELNYX_CONNECTION_ID || '',
+    messagingProfileId: process.env.TELNYX_MESSAGING_PROFILE_ID || '',
     /** Credential-based SIP connection for WebRTC (create in Telnyx portal) */
     webrtcConnectionId: process.env.TELNYX_WEBRTC_CONNECTION_ID || '',
     webrtcCredentialId: process.env.TELNYX_WEBRTC_CREDENTIAL_ID || '',
@@ -53,4 +54,9 @@ export const config = {
 
 export function telnyxConfigured(): boolean {
   return Boolean(config.telnyx.apiKey && config.telnyx.phoneNumber);
+}
+
+export function telnyxSmsWebhookUrl(): string {
+  const base = (config.telnyx.webhookBaseUrl || config.appUrl).replace(/\/$/, '');
+  return `${base}/webhook/inbound`;
 }

@@ -34,10 +34,13 @@ export function createApp(): Express {
 
   app.get('/api/health', async (_req, res) => {
     const mongoose = await import('mongoose');
+    const { telnyxConfigured, telnyxSmsWebhookUrl } = await import('./config');
     res.json({
       status: 'ok',
       serverTime: new Date().toISOString(),
       db: mongoose.default.connection.readyState === 1 ? 'connected' : 'disconnected',
+      telnyxSms: telnyxConfigured(),
+      inboundWebhook: telnyxSmsWebhookUrl(),
     });
   });
 

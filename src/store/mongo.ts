@@ -12,15 +12,36 @@ import {
 
 const LEGACY_JSON = path.join(process.cwd(), 'flowcheq_db.json');
 
+function redactMongoUri(uri: string): string {
+  return uri.replace(/\/\/[^:]+:[^@]+@/, '//***@');
+}
+
 export async function connectMongo(): Promise<void> {
   if (mongoose.connection.readyState === 1) return;
 
-  await mongoose.connect(config.mongodb.uri, {
-    serverSelectionTimeoutMS: 10000,
-    socketTimeoutMS: 45000,
-  });
+  const uri = config.mongodb.uri;
+  try {
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS:          45000,
+      family:                   4,
+    });
+  } catch (err) {
+    const e = err as Error & { cause?: { message?: string } };
+    const underlying = e.cause?.message || e.message;
+    console.error('[DB] MongoDB connection failed.');
+    console.error('[DB] URI:', redactMongoUri(uri));
+    console.error('[DB] Error:', underlying);
+    if (/TLS|socket disconnected|ECONNREFUSED|ETIMEDOUT/i.test(underlying)) {
+      console.error(
+        '[DB] Network/TLS issue — port 27017 may be blocked by ISP/firewall/VPN. ' +
+          'Try mobile hotspot or: Test-NetConnection ac-aitwkdm-shard-00-00.plqpabm.mongodb.net -Port 27017'
+      );
+    }
+    throw err;
+  }
 
-  console.log(`[DB] MongoDB connected (${config.mongodb.uri.replace(/\/\/[^:]+:[^@]+@/, '//***@')})`);
+  console.log(`[DB] MongoDB connected (${redactMongoUri(uri)})`);
 
   await migrateLegacyJsonIfNeeded();
   await seedIfEmpty();
