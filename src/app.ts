@@ -1,4 +1,4 @@
-import express, { type Express } from 'express';
+import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import { config } from './config';
 import apiRoutes from './routes/api';
 import messageRoutes from './routes/messages';
@@ -51,6 +51,14 @@ export function createApp(): Express {
   app.use('/api/webhook/voice', voiceWebhookRouter);
   app.use('/api/webhook', webhookRoutes);
   app.use('/webhook', webhookRoutes);
+
+  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    console.error('[API] Unhandled error:', err);
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    if (!res.headersSent) {
+      res.status(500).json({ error: message });
+    }
+  });
 
   return app;
 }

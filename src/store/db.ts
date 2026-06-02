@@ -46,15 +46,20 @@ function toConversation(doc: Record<string, unknown>): Conversation {
 }
 
 function toMessage(doc: Record<string, unknown>): Message {
+  const direction = doc.direction as Message['direction'];
+  const rawStatus = doc.status as Message['status'] | undefined;
+  const status = rawStatus || 'sent';
   return {
     _id: String(doc._id),
     conversationId: String(doc.conversationId),
     contactId: String(doc.contactId),
-    direction: doc.direction as Message['direction'],
+    direction,
     content: String(doc.content),
     contentType: (doc.contentType as Message['contentType']) || 'text',
     read: Boolean(doc.read),
     providerMessageId: String(doc.providerMessageId || ''),
+    status,
+    sendError: doc.sendError ? String(doc.sendError) : undefined,
     createdAt: toIso(doc.createdAt as Date | string),
     updatedAt: toIso(doc.updatedAt as Date | string),
   };
@@ -231,16 +236,37 @@ class Database {
 
   async createMessage(msg: Omit<Message, '_id' | 'createdAt' | 'updatedAt'>): Promise<Message> {
     const doc = await MessageModel.create({ _id: prefixedId('msg'), ...msg });
-    const conv = await ConversationModel.findOne({ _id: msg.conversationId });
-    if (conv) {
-      conv.set('lastMessageAt', new Date());
-      if (msg.direction === 'inbound' && !msg.read) {
-        conv.set('unreadCount', Number(conv.get('unreadCount') || 0) + 1);
-      }
-      conv.set('updatedAt', new Date());
-      await conv.save();
-    }
+    await this.touchConversationForMessage(msg);
     return toMessage(doc.toObject() as Record<string, unknown>);
+  }
+
+  async updateMessage(id: string, updates: Partial<Message>): Promise<Message | null> {
+    const doc = await MessageModel.findOneAndUpdate(
+      { _id: id },
+      { $set: { ...updates, updatedAt: new Date() } },
+      { new: true }
+    ).lean();
+    return doc ? toMessage(doc as Record<string, unknown>) : null;
+  }
+
+  async getMessageById(id: string): Promise<Message | null> {
+    const doc = await MessageModel.findOne({ _id: id }).lean();
+    return doc ? toMessage(doc as Record<string, unknown>) : null;
+  }
+
+  private async touchConversationForMessage(msg: {
+    conversationId: string;
+    direction: Message['direction'];
+    read: boolean;
+  }): Promise<void> {
+    const conv = await ConversationModel.findOne({ _id: msg.conversationId });
+    if (!conv) return;
+    conv.set('lastMessageAt', new Date());
+    if (msg.direction === 'inbound' && !msg.read) {
+      conv.set('unreadCount', Number(conv.get('unreadCount') || 0) + 1);
+    }
+    conv.set('updatedAt', new Date());
+    await conv.save();
   }
 
   async markMessagesAsRead(conversationId: string): Promise<void> {

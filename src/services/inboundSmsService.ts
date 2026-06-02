@@ -34,6 +34,7 @@ export async function handleInboundSMS(
     contentType,
     read: false,
     providerMessageId: normalized.providerMessageId,
+    status: 'sent',
   });
 
   await db.createNotification({

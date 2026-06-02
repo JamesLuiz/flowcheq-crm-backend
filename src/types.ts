@@ -28,6 +28,8 @@ export interface Message {
   contentType: 'text' | 'html';
   read: boolean;
   providerMessageId: string;
+  status?: 'pending' | 'sent' | 'failed';
+  sendError?: string;
   createdAt: string;
   updatedAt: string;
 }
