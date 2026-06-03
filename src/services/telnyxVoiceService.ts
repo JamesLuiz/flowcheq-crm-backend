@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { normalizePhoneToE164 } from '../utils/phone';
 
 const TELNYX_API = 'https://api.telnyx.com/v2';
 
@@ -21,6 +22,9 @@ export class TelnyxVoiceService {
       throw new Error('Telnyx voice not configured. Set TELNYX_API_KEY and TELNYX_CONNECTION_ID.');
     }
 
+    const destination = normalizePhoneToE164(to);
+    const from = normalizePhoneToE164(config.telnyx.phoneNumber);
+
     const webhookUrl =
       config.n8n.voiceEventsWebhook ||
       `${config.telnyx.webhookBaseUrl.replace(/\/$/, '')}/webhook/telnyx/events`;
@@ -30,8 +34,8 @@ export class TelnyxVoiceService {
       headers: this.headers(),
       body: JSON.stringify({
         connection_id: config.telnyx.connectionId,
-        to,
-        from: config.telnyx.phoneNumber,
+        to: destination,
+        from,
         webhook_url: webhookUrl,
         webhook_url_method: 'POST',
       }),

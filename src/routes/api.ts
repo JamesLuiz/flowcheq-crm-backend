@@ -2,6 +2,7 @@ import { Router, type Request } from 'express';
 import mongoose from 'mongoose';
 import { db } from '../store/db';
 import { asyncHandler } from '../middleware/auth';
+import { normalizePhoneToE164 } from '../utils/phone';
 
 function paramId(req: Request): string {
   const id = req.params.id;
@@ -31,19 +32,29 @@ router.get(
 router.post(
   '/contacts',
   asyncHandler(async (req, res) => {
-    const { name, phoneNumber, businessName, location, tags } = req.body;
+    const { name, phoneNumber, businessName, location, tags, defaultDialCode } = req.body;
     if (!name || !phoneNumber) {
       res.status(400).json({ error: 'Name and unique PhoneNumber are required.' });
       return;
     }
-    if (await db.getContactByPhoneNumber(phoneNumber)) {
+    let normalizedPhone: string;
+    try {
+      normalizedPhone = normalizePhoneToE164(
+        String(phoneNumber),
+        defaultDialCode ? String(defaultDialCode).replace(/\D/g, '') : '1'
+      );
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : 'Invalid phone number.' });
+      return;
+    }
+    if (await db.getContactByPhoneNumber(normalizedPhone)) {
       res.status(400).json({ error: 'Contact phone number must be unique.' });
       return;
     }
     try {
       const contact = await db.createContact({
         name: name.trim(),
-        phoneNumber: phoneNumber.trim(),
+        phoneNumber: normalizedPhone,
         businessName: (businessName || '').trim(),
         location: (location || '').trim(),
         tags: Array.isArray(tags) ? tags.map((t: string) => t.trim()).filter(Boolean) : [],
@@ -64,14 +75,29 @@ router.put(
       res.status(404).json({ error: 'Contact not found.' });
       return;
     }
-    const { name, phoneNumber, businessName, location, tags } = req.body;
-    if (phoneNumber && phoneNumber !== existing.phoneNumber && (await db.getContactByPhoneNumber(phoneNumber))) {
-      res.status(400).json({ error: 'Another contact already owns this phone number.' });
-      return;
+    const { name, phoneNumber, businessName, location, tags, defaultDialCode } = req.body;
+    let normalizedPhone: string | undefined;
+    if (phoneNumber !== undefined) {
+      try {
+        normalizedPhone = normalizePhoneToE164(
+          String(phoneNumber),
+          defaultDialCode ? String(defaultDialCode).replace(/\D/g, '') : '1'
+        );
+      } catch (e) {
+        res.status(400).json({ error: e instanceof Error ? e.message : 'Invalid phone number.' });
+        return;
+      }
+      if (
+        normalizedPhone !== existing.phoneNumber &&
+        (await db.getContactByPhoneNumber(normalizedPhone))
+      ) {
+        res.status(400).json({ error: 'Another contact already owns this phone number.' });
+        return;
+      }
     }
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name.trim();
-    if (phoneNumber !== undefined) updates.phoneNumber = phoneNumber.trim();
+    if (normalizedPhone !== undefined) updates.phoneNumber = normalizedPhone;
     if (businessName !== undefined) updates.businessName = businessName.trim();
     if (location !== undefined) updates.location = location.trim();
     if (tags !== undefined && Array.isArray(tags)) {

@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { normalizePhoneToE164 } from '../utils/phone';
 
 export interface InboundSMSPayload {
   from: string;
@@ -40,9 +41,12 @@ export class SMSService {
       };
     }
 
+    const fromAddress = normalizePhoneToE164(from || config.telnyx.phoneNumber);
+    const toAddress = normalizePhoneToE164(to);
+
     const body: Record<string, string> = {
-      from: from || config.telnyx.phoneNumber,
-      to,
+      from: fromAddress,
+      to: toAddress,
       text: content,
     };
     if (config.telnyx.messagingProfileId) {
