@@ -5,6 +5,7 @@ import { asyncHandler } from '../middleware/auth';
 import { SMSService } from '../services/smsService';
 import { handleInboundSMS } from '../services/inboundSmsService';
 import { sanitizeHTML } from '../utils/sanitizer';
+import { wrapLinksInMessage } from '../services/linkTrackingService';
 import type { Contact, Conversation, Message } from '../types';
 
 const router = Router();
@@ -42,6 +43,7 @@ async function resolveSendContext(body: {
         phoneNumber: trimmedPhone,
         businessName: '',
         location: '',
+        website: '',
         tags: ['AutoCreated'],
       });
     }
@@ -109,7 +111,7 @@ async function dispatchOutboundSms(
 router.post(
   '/send',
   asyncHandler(async (req, res) => {
-    let { conversationId, contactId, to, content, contentType } = req.body;
+    let { conversationId, contactId, to, content, contentType, trackLinks } = req.body;
 
     if (!content || !content.trim()) {
       res.status(400).json({ error: 'Message content cannot be empty.' });
@@ -128,6 +130,7 @@ router.post(
     }
 
     const { contact, conv } = ctx;
+    const shouldTrackLinks = Boolean(trackLinks);
 
     const message = await db.createMessage({
       conversationId: conv._id,
@@ -138,11 +141,31 @@ router.post(
       read: true,
       providerMessageId: '',
       status: 'pending',
+      trackLinks: shouldTrackLinks,
     });
 
     await db.updateConversation(conv._id, { lastMessageAt: message.createdAt, status: 'active' });
 
-    const result = await dispatchOutboundSms(message, contact, content, resolvedContentType);
+    let outboundContent = content;
+    if (shouldTrackLinks) {
+      outboundContent = await wrapLinksInMessage({
+        content,
+        contentType: resolvedContentType,
+        messageId: message._id,
+        contactId: contact._id,
+        conversationId: conv._id,
+      });
+      if (outboundContent !== content) {
+        await db.updateMessage(message._id, { content: outboundContent });
+      }
+    }
+
+    const result = await dispatchOutboundSms(
+      { ...message, content: outboundContent },
+      contact,
+      outboundContent,
+      resolvedContentType
+    );
 
     if (result.status === 'failed') {
       res.status(502).json({

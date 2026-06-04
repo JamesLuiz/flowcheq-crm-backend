@@ -29,6 +29,30 @@ npm install
 npm run dev               # http://localhost:3000
 ```
 
+## Import leads from spreadsheet
+
+Requires `Cleaned_Leads.xlsx` at the repo root, Python 3, and `MONGODB_URI` in `backend/.env`.
+
+| Command | Behavior |
+|---------|----------|
+| `npm run import:leads` | Create **new** contacts only; skip existing phone numbers |
+| `npm run import:leads:update` | Create new **and** update existing contacts (matched by phone) |
+
+**Update mode** refreshes `name`, `businessName`, `location`, and `website` (when present in the sheet). It does **not** change tags you set manually in the UI.
+
+Fields imported: business name, E.164 phone, location (city/state/country), website URL.
+
+### Seed / refresh database (step by step)
+
+1. Ensure MongoDB is reachable and `backend/.env` has a valid `MONGODB_URI`.
+2. From repo root, confirm `Cleaned_Leads.xlsx` exists.
+3. Install backend deps (once): `cd backend && npm install`
+4. **First import** (empty DB): `npm run import:leads`
+5. **Backfill websites / refresh data** after code changes: `npm run import:leads:update`
+6. Restart the backend (`npm run dev` or redeploy) and refresh the frontend Contacts tab.
+
+Optional API: `POST /api/contacts/bulk-import` with body `{ "updateExisting": true, "leads": [...] }`.
+
 ## Run with frontend (dev)
 
 From the [flowcheq-messaging](https://github.com/JamesLuiz/flowcheq-messaging) frontend repo:
@@ -44,7 +68,11 @@ npm run dev               # Vite :5173, proxies /api → BACKEND_URL
 | GET | `/api/health` | Health check |
 | GET/POST | `/api/contacts` | Contact CRUD |
 | GET | `/api/conversations` | Inbox list |
-| POST | `/api/messages/send` | Send SMS via Telnyx |
+| POST | `/api/messages/send` | Send SMS via Telnyx (`trackLinks: true` wraps URLs for click analytics) |
+| GET | `/api/analytics/link-clicks` | SMS link click analytics |
+| GET | `/r/:slug` | Tracked link redirect (records click) |
+| POST | `/api/contacts/bulk-import` | Bulk import contacts |
+| PATCH | `/api/contacts/:id/tags` | Set contact tag from predefined list |
 | POST | `/api/calls/outbound` | Start outbound call via Telnyx |
 | POST | `/webhook/inbound` | Telnyx SMS webhook |
 | POST | `/api/webhook/voice/call-started` | n8n → incoming call notification |

@@ -12,6 +12,7 @@ export async function handleInboundSMS(
       phoneNumber: normalized.from,
       businessName: '',
       location: 'Inbound Channel',
+      website: '',
       tags: ['NewLead'],
     });
   }
@@ -57,6 +58,7 @@ export async function resolveOrCreateContactByPhone(
       phoneNumber,
       businessName: '',
       location: '',
+      website: '',
       tags: ['VoiceLead'],
     });
   }

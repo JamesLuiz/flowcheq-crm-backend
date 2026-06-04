@@ -1,10 +1,22 @@
-import type { CallRecord, Contact, Conversation, Message, Notification } from '../types';
+import type {
+  CallRecord,
+  Contact,
+  Conversation,
+  LinkAnalyticsRow,
+  LinkAnalyticsSummary,
+  LinkClick,
+  Message,
+  Notification,
+  TrackedLink,
+} from '../types';
 import {
   CallModel,
   ContactModel,
   ConversationModel,
+  LinkClickModel,
   MessageModel,
   NotificationModel,
+  TrackedLinkModel,
 } from './schemas';
 
 function prefixedId(prefix: string): string {
@@ -27,6 +39,7 @@ function toContact(doc: Record<string, unknown>): Contact {
     phoneNumber: String(doc.phoneNumber),
     businessName: String(doc.businessName || ''),
     location: String(doc.location || ''),
+    website: String(doc.website || ''),
     tags: Array.isArray(doc.tags) ? (doc.tags as string[]) : [],
     createdAt: toIso(doc.createdAt as Date | string),
     updatedAt: toIso(doc.updatedAt as Date | string),
@@ -60,8 +73,40 @@ function toMessage(doc: Record<string, unknown>): Message {
     providerMessageId: String(doc.providerMessageId || ''),
     status,
     sendError: doc.sendError ? String(doc.sendError) : undefined,
+    trackLinks: Boolean(doc.trackLinks),
     createdAt: toIso(doc.createdAt as Date | string),
     updatedAt: toIso(doc.updatedAt as Date | string),
+  };
+}
+
+function randomSlug(): string {
+  return Math.random().toString(36).substring(2, 12);
+}
+
+function toTrackedLink(doc: Record<string, unknown>): TrackedLink {
+  return {
+    _id: String(doc._id),
+    slug: String(doc.slug),
+    messageId: String(doc.messageId),
+    contactId: String(doc.contactId),
+    conversationId: String(doc.conversationId),
+    originalUrl: String(doc.originalUrl),
+    clickCount: Number(doc.clickCount) || 0,
+    createdAt: toIso(doc.createdAt as Date | string),
+    updatedAt: toIso(doc.updatedAt as Date | string),
+  };
+}
+
+function toLinkClick(doc: Record<string, unknown>): LinkClick {
+  return {
+    _id: String(doc._id),
+    linkId: String(doc.linkId),
+    messageId: String(doc.messageId),
+    contactId: String(doc.contactId),
+    userAgent: String(doc.userAgent || ''),
+    referer: String(doc.referer || ''),
+    ip: String(doc.ip || ''),
+    clickedAt: toIso(doc.clickedAt as Date | string),
   };
 }
 
@@ -373,6 +418,95 @@ class Database {
     ).lean();
 
     return toCallRecord(doc as Record<string, unknown>);
+  }
+
+  async createTrackedLink(
+    link: Omit<TrackedLink, '_id' | 'clickCount' | 'createdAt' | 'updatedAt'> & { slug?: string }
+  ): Promise<TrackedLink> {
+    let slug = link.slug || randomSlug();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const exists = await TrackedLinkModel.findOne({ slug }).lean();
+      if (!exists) break;
+      slug = randomSlug();
+    }
+    const doc = await TrackedLinkModel.create({
+      _id: prefixedId('lnk'),
+      slug,
+      messageId: link.messageId,
+      contactId: link.contactId,
+      conversationId: link.conversationId,
+      originalUrl: link.originalUrl,
+      clickCount: 0,
+    });
+    return toTrackedLink(doc.toObject() as Record<string, unknown>);
+  }
+
+  async getTrackedLinkBySlug(slug: string): Promise<TrackedLink | null> {
+    const doc = await TrackedLinkModel.findOne({ slug }).lean();
+    return doc ? toTrackedLink(doc as Record<string, unknown>) : null;
+  }
+
+  async incrementTrackedLinkClicks(linkId: string): Promise<void> {
+    await TrackedLinkModel.updateOne(
+      { _id: linkId },
+      { $inc: { clickCount: 1 }, $set: { updatedAt: new Date() } }
+    );
+  }
+
+  async createLinkClick(
+    click: Omit<LinkClick, '_id' | 'clickedAt'>
+  ): Promise<LinkClick> {
+    const doc = await LinkClickModel.create({
+      _id: prefixedId('clk'),
+      ...click,
+      clickedAt: new Date(),
+    });
+    return toLinkClick(doc.toObject() as Record<string, unknown>);
+  }
+
+  async getLinkAnalytics(): Promise<{ summary: LinkAnalyticsSummary; links: LinkAnalyticsRow[] }> {
+    const links = await TrackedLinkModel.find().sort({ updatedAt: -1 }).lean();
+    const clicks = await LinkClickModel.find().sort({ clickedAt: -1 }).lean();
+    const contacts = await ContactModel.find().lean();
+    const contactNameById = new Map(contacts.map((c) => [String(c._id), String(c.name)]));
+
+    const clicksByLink = new Map<string, Record<string, unknown>[]>();
+    for (const raw of clicks) {
+      const linkId = String(raw.linkId);
+      const list = clicksByLink.get(linkId) || [];
+      list.push(raw);
+      clicksByLink.set(linkId, list);
+    }
+
+    const rows: LinkAnalyticsRow[] = links.map((raw) => {
+      const link = toTrackedLink(raw as Record<string, unknown>);
+      const linkClicks = (clicksByLink.get(link._id) || []).map((c) =>
+        toLinkClick(c as Record<string, unknown>)
+      );
+      return {
+        linkId: link._id,
+        slug: link.slug,
+        originalUrl: link.originalUrl,
+        messageId: link.messageId,
+        contactId: link.contactId,
+        contactName: contactNameById.get(link.contactId) || 'Unknown',
+        clickCount: link.clickCount,
+        lastClickedAt: linkClicks[0]?.clickedAt || null,
+        recentClicks: linkClicks.slice(0, 10),
+      };
+    });
+
+    const totalClicks = clicks.length;
+    const linksWithClicks = rows.filter((r) => r.clickCount > 0).length;
+
+    return {
+      summary: {
+        totalClicks,
+        totalLinks: rows.length,
+        linksWithClicks,
+      },
+      links: rows,
+    };
   }
 }
 

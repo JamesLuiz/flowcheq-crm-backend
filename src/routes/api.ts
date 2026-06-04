@@ -3,6 +3,10 @@ import mongoose from 'mongoose';
 import { db } from '../store/db';
 import { asyncHandler } from '../middleware/auth';
 import { normalizePhoneToE164 } from '../utils/phone';
+import { CONTACT_TAG_OPTIONS } from '../constants/contactTags';
+import { fetchWebsiteMeta } from '../services/websiteMetaService';
+import { importLeads } from '../services/leadImportService';
+import { normalizeWebsiteUrl } from '../utils/url';
 
 function paramId(req: Request): string {
   const id = req.params.id;
@@ -57,6 +61,7 @@ router.post(
         phoneNumber: normalizedPhone,
         businessName: (businessName || '').trim(),
         location: (location || '').trim(),
+        website: website ? normalizeWebsiteUrl(String(website)) || String(website).trim() : '',
         tags: Array.isArray(tags) ? tags.map((t: string) => t.trim()).filter(Boolean) : [],
       });
       res.status(201).json(contact);
@@ -75,7 +80,7 @@ router.put(
       res.status(404).json({ error: 'Contact not found.' });
       return;
     }
-    const { name, phoneNumber, businessName, location, tags, defaultDialCode } = req.body;
+    const { name, phoneNumber, businessName, location, website, tags, defaultDialCode } = req.body;
     let normalizedPhone: string | undefined;
     if (phoneNumber !== undefined) {
       try {
@@ -100,11 +105,127 @@ router.put(
     if (normalizedPhone !== undefined) updates.phoneNumber = normalizedPhone;
     if (businessName !== undefined) updates.businessName = businessName.trim();
     if (location !== undefined) updates.location = location.trim();
+    if (website !== undefined) {
+      updates.website = website ? normalizeWebsiteUrl(String(website)) || String(website).trim() : '';
+    }
     if (tags !== undefined && Array.isArray(tags)) {
       updates.tags = tags.map((t: string) => t.trim()).filter(Boolean);
     }
     const updated = await db.updateContact(contactId, updates);
     res.json(updated);
+  })
+);
+
+router.get(
+  '/contacts/:id/website-meta',
+  asyncHandler(async (req, res) => {
+    const contact = await db.getContactById(paramId(req));
+    if (!contact) {
+      res.status(404).json({ error: 'Contact not found.' });
+      return;
+    }
+    if (!contact.website?.trim()) {
+      res.status(400).json({ error: 'Contact has no website URL.' });
+      return;
+    }
+    const meta = await fetchWebsiteMeta(contact.website);
+    res.json(meta);
+  })
+);
+
+router.patch(
+  '/contacts/:id/tags',
+  asyncHandler(async (req, res) => {
+    const contactId = paramId(req);
+    const existing = await db.getContactById(contactId);
+    if (!existing) {
+      res.status(404).json({ error: 'Contact not found.' });
+      return;
+    }
+    const { tag } = req.body as { tag?: string };
+    if (tag !== undefined && tag !== '' && !CONTACT_TAG_OPTIONS.includes(tag as (typeof CONTACT_TAG_OPTIONS)[number])) {
+      res.status(400).json({ error: 'Invalid tag.', allowed: CONTACT_TAG_OPTIONS });
+      return;
+    }
+    const tags = tag && tag.trim() ? [tag.trim()] : [];
+    const updated = await db.updateContact(contactId, { tags });
+    res.json(updated);
+  })
+);
+
+router.post(
+  '/contacts/bulk-import',
+  asyncHandler(async (req, res) => {
+    const { leads, updateExisting } = req.body as {
+      updateExisting?: boolean;
+      leads?: {
+        name: string;
+        phoneNumber: string;
+        businessName?: string;
+        location?: string;
+        website?: string;
+        tags?: string[];
+        defaultDialCode?: string;
+      }[];
+    };
+    if (!Array.isArray(leads) || leads.length === 0) {
+      res.status(400).json({ error: 'leads array is required.' });
+      return;
+    }
+
+    const normalizedLeads: {
+      name: string;
+      businessName: string;
+      phoneNumber: string;
+      location: string;
+      website?: string;
+      tags?: string[];
+    }[] = [];
+    const preErrors: { phoneNumber: string; error: string }[] = [];
+
+    for (const row of leads) {
+      if (!row.name?.trim() || !row.phoneNumber?.trim()) {
+        preErrors.push({ phoneNumber: row.phoneNumber || '', error: 'Name and phone required.' });
+        continue;
+      }
+      try {
+        const normalizedPhone = normalizePhoneToE164(
+          String(row.phoneNumber),
+          row.defaultDialCode ? String(row.defaultDialCode).replace(/\D/g, '') : '1'
+        );
+        normalizedLeads.push({
+          name: row.name.trim(),
+          businessName: (row.businessName || row.name).trim(),
+          phoneNumber: normalizedPhone,
+          location: (row.location || '').trim(),
+          website: row.website,
+          tags: Array.isArray(row.tags) && row.tags.length ? row.tags : ['Imported'],
+        });
+      } catch (e) {
+        preErrors.push({
+          phoneNumber: row.phoneNumber || '',
+          error: e instanceof Error ? e.message : 'Invalid phone number',
+        });
+      }
+    }
+
+    const stats = await importLeads(normalizedLeads, { updateExisting: Boolean(updateExisting) });
+    stats.errors.unshift(...preErrors);
+    stats.failed += preErrors.length;
+
+    res.status(201).json({
+      ...stats,
+      errors: stats.errors.slice(0, 50),
+      total: leads.length,
+      updateExisting: Boolean(updateExisting),
+    });
+  })
+);
+
+router.get(
+  '/contact-tags',
+  asyncHandler(async (_req, res) => {
+    res.json({ tags: CONTACT_TAG_OPTIONS });
   })
 );
 
@@ -133,6 +254,7 @@ router.get(
           phoneNumber: 'Unknown',
           businessName: '',
           location: '',
+          website: '',
           tags: [],
           createdAt: '',
           updatedAt: '',
@@ -164,6 +286,7 @@ router.get(
         phoneNumber: 'Unknown',
         businessName: '',
         location: '',
+        website: '',
         tags: [],
         createdAt: '',
         updatedAt: '',

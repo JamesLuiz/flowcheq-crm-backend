@@ -5,6 +5,8 @@ import messageRoutes from './routes/messages';
 import callRoutes, { voiceWebhookRouter } from './routes/calls';
 import voiceRoutes from './routes/voice';
 import webhookRoutes from './routes/webhooks';
+import analyticsRoutes from './routes/analytics';
+import redirectRoutes from './routes/redirect';
 
 export function createApp(): Express {
   const app = express();
@@ -44,7 +46,9 @@ export function createApp(): Express {
     });
   });
 
+  app.use('/r', redirectRoutes);
   app.use('/api', apiRoutes);
+  app.use('/api/analytics', analyticsRoutes);
   app.use('/api/messages', messageRoutes);
   app.use('/api/calls', callRoutes);
   app.use('/api/voice', voiceRoutes);

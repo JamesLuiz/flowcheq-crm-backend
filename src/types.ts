@@ -4,6 +4,7 @@ export interface Contact {
   phoneNumber: string;
   businessName: string;
   location: string;
+  website: string;
   tags: string[];
   createdAt: string;
   updatedAt: string;
@@ -30,8 +31,50 @@ export interface Message {
   providerMessageId: string;
   status?: 'pending' | 'sent' | 'failed';
   sendError?: string;
+  trackLinks?: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TrackedLink {
+  _id: string;
+  slug: string;
+  messageId: string;
+  contactId: string;
+  conversationId: string;
+  originalUrl: string;
+  clickCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LinkClick {
+  _id: string;
+  linkId: string;
+  messageId: string;
+  contactId: string;
+  userAgent: string;
+  referer: string;
+  ip: string;
+  clickedAt: string;
+}
+
+export interface LinkAnalyticsRow {
+  linkId: string;
+  slug: string;
+  originalUrl: string;
+  messageId: string;
+  contactId: string;
+  contactName: string;
+  clickCount: number;
+  lastClickedAt: string | null;
+  recentClicks: LinkClick[];
+}
+
+export interface LinkAnalyticsSummary {
+  totalClicks: number;
+  totalLinks: number;
+  linksWithClicks: number;
 }
 
 export interface Notification {

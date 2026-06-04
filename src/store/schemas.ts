@@ -11,6 +11,7 @@ const contactSchema = new Schema(
     phoneNumber: { type: String, required: true, unique: true, index: true },
     businessName: { type: String, default: '' },
     location: { type: String, default: '' },
+    website: { type: String, default: '' },
     tags: { type: [String], default: [] },
   },
   {
@@ -49,6 +50,7 @@ const messageSchema = new Schema(
     providerMessageId: { type: String, default: '' },
     status: { type: String, enum: ['pending', 'sent', 'failed'], default: 'sent' },
     sendError: { type: String, default: '' },
+    trackLinks: { type: Boolean, default: false },
   },
   {
     _id: false,
@@ -116,3 +118,45 @@ export const NotificationModel = (mongoose.models.FlowcheqNotification ||
   mongoose.model('FlowcheqNotification', notificationSchema)) as Model<Record<string, unknown>>;
 export const CallModel = (mongoose.models.FlowcheqCall ||
   mongoose.model('FlowcheqCall', callSchema)) as Model<Record<string, unknown>>;
+
+const trackedLinkSchema = new Schema(
+  {
+    _id: { type: String, default: () => prefixedId('lnk') },
+    slug: { type: String, required: true, unique: true, index: true },
+    messageId: { type: String, required: true, index: true },
+    contactId: { type: String, required: true, index: true },
+    conversationId: { type: String, required: true, index: true },
+    originalUrl: { type: String, required: true },
+    clickCount: { type: Number, default: 0 },
+  },
+  {
+    _id: false,
+    versionKey: false,
+    collection: 'tracked_links',
+    timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
+  }
+);
+
+const linkClickSchema = new Schema(
+  {
+    _id: { type: String, default: () => prefixedId('clk') },
+    linkId: { type: String, required: true, index: true },
+    messageId: { type: String, required: true, index: true },
+    contactId: { type: String, required: true, index: true },
+    userAgent: { type: String, default: '' },
+    referer: { type: String, default: '' },
+    ip: { type: String, default: '' },
+    clickedAt: { type: Date, default: Date.now, index: true },
+  },
+  {
+    _id: false,
+    versionKey: false,
+    collection: 'link_clicks',
+    timestamps: false,
+  }
+);
+
+export const TrackedLinkModel = (mongoose.models.FlowcheqTrackedLink ||
+  mongoose.model('FlowcheqTrackedLink', trackedLinkSchema)) as Model<Record<string, unknown>>;
+export const LinkClickModel = (mongoose.models.FlowcheqLinkClick ||
+  mongoose.model('FlowcheqLinkClick', linkClickSchema)) as Model<Record<string, unknown>>;
