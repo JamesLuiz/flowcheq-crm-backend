@@ -1,4 +1,4 @@
-/** Predefined tags for manual assignment in the CRM UI */
+/** Predefined tags for manual assignment in the CRM UI. Keep in sync with src/constants/contactTags.ts */
 export const CONTACT_TAG_OPTIONS = [
   'Imported',
   'Lead',

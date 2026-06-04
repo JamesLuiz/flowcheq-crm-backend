@@ -73,7 +73,7 @@ function toMessage(doc: Record<string, unknown>): Message {
     providerMessageId: String(doc.providerMessageId || ''),
     status,
     sendError: doc.sendError ? String(doc.sendError) : undefined,
-    trackLinks: Boolean(doc.trackLinks),
+    trackLinks: doc.trackLinks === true ? true : undefined,
     createdAt: toIso(doc.createdAt as Date | string),
     updatedAt: toIso(doc.updatedAt as Date | string),
   };

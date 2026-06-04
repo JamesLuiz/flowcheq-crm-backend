@@ -337,7 +337,8 @@ router.get(
         c.name.toLowerCase().includes(q) ||
         c.phoneNumber.toLowerCase().includes(q) ||
         c.businessName.toLowerCase().includes(q) ||
-        c.location.toLowerCase().includes(q)
+        c.location.toLowerCase().includes(q) ||
+        (c.website || '').toLowerCase().includes(q)
     );
     res.json({ query: q, matches });
   })

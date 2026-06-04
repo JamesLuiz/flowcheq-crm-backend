@@ -65,6 +65,7 @@ async function seedIfEmpty(): Promise<void> {
     phoneNumber: '+15552345678',
     businessName: 'Luiz Ventures',
     location: 'New York, USA',
+    website: '',
     tags: ['VIP', 'Inquiry', 'Marketing'],
     createdAt: now,
     updatedAt: now,
