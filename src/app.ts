@@ -1,15 +1,24 @@
 import express, { type Express, type Request, type Response, type NextFunction } from 'express';
+import passport from 'passport';
 import { config } from './config';
+import { configurePassport, requireAuth } from './middleware/jwtAuth';
 import apiRoutes from './routes/api';
+import authRoutes from './routes/auth';
 import messageRoutes from './routes/messages';
 import callRoutes, { voiceWebhookRouter } from './routes/calls';
 import voiceRoutes from './routes/voice';
 import webhookRoutes from './routes/webhooks';
 import analyticsRoutes from './routes/analytics';
 import redirectRoutes from './routes/redirect';
+import insightRoutes from './routes/insights';
+import campaignRoutes from './routes/campaigns';
+import uploadRoutes from './routes/upload';
+
+configurePassport();
 
 export function createApp(): Express {
   const app = express();
+  app.use(passport.initialize());
 
   app.use((req, res, next) => {
     const origin = req.headers.origin;
@@ -19,7 +28,7 @@ export function createApp(): Express {
       res.setHeader('Vary', 'Origin');
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, x-webhook-secret');
     if (req.method === 'OPTIONS') {
       res.sendStatus(204);
       return;
@@ -47,14 +56,20 @@ export function createApp(): Express {
   });
 
   app.use('/r', redirectRoutes);
+  app.use('/api/auth', authRoutes);
+  app.use('/api/webhook', webhookRoutes);
+  app.use('/webhook', webhookRoutes);
+
+  app.use('/api', requireAuth);
+  app.use('/api', uploadRoutes);
+  app.use('/api', insightRoutes);
+  app.use('/api/campaigns', campaignRoutes);
   app.use('/api', apiRoutes);
   app.use('/api/analytics', analyticsRoutes);
   app.use('/api/messages', messageRoutes);
   app.use('/api/calls', callRoutes);
   app.use('/api/voice', voiceRoutes);
   app.use('/api/webhook/voice', voiceWebhookRouter);
-  app.use('/api/webhook', webhookRoutes);
-  app.use('/webhook', webhookRoutes);
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     console.error('[API] Unhandled error:', err);

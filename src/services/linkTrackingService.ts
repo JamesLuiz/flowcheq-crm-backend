@@ -13,14 +13,14 @@ function extractUrls(content: string, contentType: 'text' | 'html'): string[] {
   const found = new Set<string>();
   if (contentType === 'html') {
     let match: RegExpExecArray | null;
-    const hrefRe = new HREF_REGEX;
+    const hrefRe = new RegExp(HREF_REGEX.source, HREF_REGEX.flags);
     while ((match = hrefRe.exec(content)) !== null) {
       const url = match[1].trim();
       if (/^https?:\/\//i.test(url)) found.add(url);
     }
   }
   let match: RegExpExecArray | null;
-  const urlRe = new URL_REGEX;
+  const urlRe = new RegExp(URL_REGEX.source, URL_REGEX.flags);
   while ((match = urlRe.exec(content)) !== null) {
     found.add(match[0].replace(/[.,;:!?)]+$/, ''));
   }

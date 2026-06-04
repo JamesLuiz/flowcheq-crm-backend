@@ -38,6 +38,17 @@ export const config = {
   n8n: {
     outboundCallWebhook: process.env.N8N_OUTBOUND_CALL_WEBHOOK || '',
     voiceEventsWebhook: process.env.N8N_CALL_ROUTER_WEBHOOK || '',
+    businessEnrichWebhook: process.env.N8N_BUSINESS_ENRICH_WEBHOOK || '',
+    followUpWebhook: process.env.N8N_FOLLOW_UP_WEBHOOK || '',
+  },
+  auth: {
+    disabled: process.env.AUTH_DISABLED === 'true',
+    jwtSecret: process.env.JWT_SECRET || process.env.WEBHOOK_SECRET || 'flowcheq-change-me-in-production',
+    jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  },
+  campaign: {
+    consultationUrl:
+      process.env.CONSULTATION_URL || 'https://flowcheq.com/consultation',
   },
   voice: {
     apiUrl: process.env.VOICE_API_URL || 'http://localhost:3001',

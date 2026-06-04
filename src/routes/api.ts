@@ -36,7 +36,7 @@ router.get(
 router.post(
   '/contacts',
   asyncHandler(async (req, res) => {
-    const { name, phoneNumber, businessName, location, tags, defaultDialCode } = req.body;
+    const { name, phoneNumber, businessName, location, website, tags, defaultDialCode } = req.body;
     if (!name || !phoneNumber) {
       res.status(400).json({ error: 'Name and unique PhoneNumber are required.' });
       return;

@@ -36,6 +36,31 @@ export interface Message {
   updatedAt: string;
 }
 
+export interface Notification {
+  _id: string;
+  type: 'new_message' | 'system' | 'call';
+  message: string;
+  read: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CallRecord {
+  _id: string;
+  contactId: string;
+  direction: 'inbound' | 'outbound';
+  status: 'completed' | 'missed' | 'no-answer' | 'ringing' | 'in-progress';
+  duration: number;
+  createdAt: string;
+  notes?: string;
+  providerCallId?: string;
+  telnyxCallControlId?: string;
+  handledBy?: 'human' | 'ai';
+  summary?: string;
+  leadScore?: number;
+  transcript?: string;
+}
+
 export interface TrackedLink {
   _id: string;
   slug: string;
@@ -77,29 +102,35 @@ export interface LinkAnalyticsSummary {
   linksWithClicks: number;
 }
 
-export interface Notification {
+export interface SuggestedMessage {
+  id: string;
+  label: string;
+  text: string;
+}
+
+export interface ContactInsight {
   _id: string;
-  type: 'new_message' | 'system' | 'call';
-  message: string;
-  read: boolean;
+  contactId: string;
+  status: 'pending' | 'ready' | 'failed';
+  googleRating?: number;
+  reviewCount?: number;
+  googleMapsUrl?: string;
+  scrapedSummary?: string;
+  needs: string[];
+  weaknesses: string[];
+  fixes: string[];
+  recommendations: string[];
+  suggestedMessages: SuggestedMessage[];
+  followUpMessage?: string;
+  error?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface CallRecord {
+export interface UserPublic {
   _id: string;
-  contactId: string;
-  direction: 'inbound' | 'outbound';
-  status: 'completed' | 'missed' | 'no-answer' | 'ringing' | 'in-progress';
-  duration: number;
-  createdAt: string;
-  notes?: string;
-  providerCallId?: string;
-  telnyxCallControlId?: string;
-  handledBy?: 'human' | 'ai';
-  summary?: string;
-  leadScore?: number;
-  transcript?: string;
+  email: string;
+  name: string;
 }
 
 export interface VoiceCallCompletedPayload {

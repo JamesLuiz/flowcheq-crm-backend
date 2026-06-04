@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import { asyncHandler } from '../middleware/auth';
+import { asyncHandler, requireWebhookSecret } from '../middleware/auth';
 import { SMSService } from '../services/smsService';
 import { handleInboundSMS } from '../services/inboundSmsService';
+import { markInsightFailed, saveInsightFromWebhook } from '../services/insightService';
 
 const router = Router();
 
@@ -39,5 +40,25 @@ async function inboundSmsHandler(req: Parameters<Parameters<typeof asyncHandler>
 }
 
 router.post('/inbound', asyncHandler(inboundSmsHandler));
+
+router.post(
+  '/insights',
+  requireWebhookSecret,
+  asyncHandler(async (req, res) => {
+    const { contact_id, contactId, status, error } = req.body as Record<string, unknown>;
+    const id = String(contact_id || contactId || '');
+    if (!id) {
+      res.status(400).json({ error: 'contact_id required' });
+      return;
+    }
+    if (status === 'failed' || error) {
+      await markInsightFailed(id, String(error || 'Enrichment failed'));
+      res.json({ success: true });
+      return;
+    }
+    const insight = await saveInsightFromWebhook(id, req.body as Record<string, unknown>);
+    res.json({ success: true, insight });
+  })
+);
 
 export default router;

@@ -160,3 +160,73 @@ export const TrackedLinkModel = (mongoose.models.FlowcheqTrackedLink ||
   mongoose.model('FlowcheqTrackedLink', trackedLinkSchema)) as Model<Record<string, unknown>>;
 export const LinkClickModel = (mongoose.models.FlowcheqLinkClick ||
   mongoose.model('FlowcheqLinkClick', linkClickSchema)) as Model<Record<string, unknown>>;
+
+const userSchema = new Schema(
+  {
+    _id: { type: String, default: () => prefixedId('usr') },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    passwordHash: { type: String, required: true },
+    name: { type: String, default: 'Flowcheq Admin' },
+  },
+  {
+    _id: false,
+    versionKey: false,
+    collection: 'users',
+    timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
+  }
+);
+
+const appSettingsSchema = new Schema(
+  {
+    _id: { type: String, default: 'global' },
+    signupCompleted: { type: Boolean, default: false },
+  },
+  {
+    _id: false,
+    versionKey: false,
+    collection: 'app_settings',
+    timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
+  }
+);
+
+const contactInsightSchema = new Schema(
+  {
+    _id: { type: String, default: () => prefixedId('ins') },
+    contactId: { type: String, required: true, unique: true, index: true },
+    status: { type: String, enum: ['pending', 'ready', 'failed'], default: 'pending' },
+    googleRating: { type: Number },
+    reviewCount: { type: Number },
+    googleMapsUrl: { type: String, default: '' },
+    scrapedSummary: { type: String, default: '' },
+    needs: { type: [String], default: [] },
+    weaknesses: { type: [String], default: [] },
+    fixes: { type: [String], default: [] },
+    recommendations: { type: [String], default: [] },
+    suggestedMessages: {
+      type: [
+        {
+          id: String,
+          label: String,
+          text: String,
+        },
+      ],
+      default: [],
+    },
+    followUpMessage: { type: String, default: '' },
+    error: { type: String, default: '' },
+    raw: { type: Schema.Types.Mixed },
+  },
+  {
+    _id: false,
+    versionKey: false,
+    collection: 'contact_insights',
+    timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' },
+  }
+);
+
+export const UserModel = (mongoose.models.FlowcheqUser ||
+  mongoose.model('FlowcheqUser', userSchema)) as Model<Record<string, unknown>>;
+export const AppSettingsModel = (mongoose.models.FlowcheqAppSettings ||
+  mongoose.model('FlowcheqAppSettings', appSettingsSchema)) as Model<Record<string, unknown>>;
+export const ContactInsightModel = (mongoose.models.FlowcheqContactInsight ||
+  mongoose.model('FlowcheqContactInsight', contactInsightSchema)) as Model<Record<string, unknown>>;
