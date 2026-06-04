@@ -50,6 +50,13 @@ export const config = {
     consultationUrl:
       process.env.CONSULTATION_URL || 'https://flowcheq.com/consultation',
   },
+  /** Public base for short tracked links in SMS (not the API host). */
+  linkTracking: {
+    baseUrl:
+      process.env.LINK_TRACKING_BASE_URL ||
+      process.env.PUBLIC_APP_URL ||
+      'https://flowcheq.com',
+  },
   voice: {
     apiUrl: process.env.VOICE_API_URL || 'http://localhost:3001',
     internalApiKey: process.env.VOICE_INTERNAL_API_KEY || '',

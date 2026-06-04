@@ -6,7 +6,22 @@ const URL_REGEX = /https?:\/\/[^\s<>"')\]]+/gi;
 const HREF_REGEX = /href\s*=\s*["']([^"']+)["']/gi;
 
 function trackingBaseUrl(): string {
-  return (config.telnyx.webhookBaseUrl || config.appUrl).replace(/\/$/, '');
+  return config.linkTracking.baseUrl.replace(/\/$/, '');
+}
+
+/** Keep branded flowcheq.com URLs readable in SMS; only rewrite third-party links. */
+function isExemptFromLinkTracking(url: string): boolean {
+  const consult = config.campaign.consultationUrl.replace(/\/$/, '');
+  const stripped = url.replace(/[.,;:!?)]+$/, '').replace(/\/$/, '');
+  if (stripped === consult || stripped.startsWith(`${consult}?`)) return true;
+
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (host === 'flowcheq.com' || host === 'www.flowcheq.com') return true;
+  } catch {
+    /* ignore invalid URLs */
+  }
+  return false;
 }
 
 function extractUrls(content: string, contentType: 'text' | 'html'): string[] {
@@ -34,7 +49,9 @@ export async function wrapLinksInMessage(params: {
   contactId: string;
   conversationId: string;
 }): Promise<string> {
-  const urls = extractUrls(params.content, params.contentType);
+  const urls = extractUrls(params.content, params.contentType).filter(
+    (u) => !isExemptFromLinkTracking(u)
+  );
   if (urls.length === 0) return params.content;
 
   const base = trackingBaseUrl();
