@@ -9,15 +9,18 @@ function trackingBaseUrl(): string {
   return config.linkTracking.baseUrl.replace(/\/$/, '');
 }
 
-/** Keep branded flowcheq.com URLs readable in SMS; only rewrite third-party links. */
+/** Skip URLs that are already short tracking links (avoid double-wrapping). */
 function isExemptFromLinkTracking(url: string): boolean {
-  const consult = config.campaign.consultationUrl.replace(/\/$/, '');
-  const stripped = url.replace(/[.,;:!?)]+$/, '').replace(/\/$/, '');
-  if (stripped === consult || stripped.startsWith(`${consult}?`)) return true;
-
   try {
-    const host = new URL(url).hostname.toLowerCase();
-    if (host === 'flowcheq.com' || host === 'www.flowcheq.com') return true;
+    const cleaned = url.replace(/[.,;:!?)]+$/, '');
+    const parsed = new URL(cleaned);
+    const base = new URL(trackingBaseUrl());
+    if (
+      parsed.hostname.toLowerCase() === base.hostname.toLowerCase() &&
+      parsed.pathname.startsWith('/r/')
+    ) {
+      return true;
+    }
   } catch {
     /* ignore invalid URLs */
   }
