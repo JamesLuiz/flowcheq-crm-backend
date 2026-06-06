@@ -42,6 +42,15 @@ function toContact(doc: Record<string, unknown>): Contact {
     website: String(doc.website || ''),
     industry: String(doc.industry || ''),
     googleMapsUrl: String(doc.googleMapsUrl || ''),
+    lineType: doc.lineType ? String(doc.lineType) : undefined,
+    smsCapable:
+      doc.smsCapable === true || doc.smsCapable === false ?
+        Boolean(doc.smsCapable)
+      : doc.smsCapable === null ?
+        null
+      : undefined,
+    carrierName: doc.carrierName ? String(doc.carrierName) : undefined,
+    phoneLookupAt: doc.phoneLookupAt ? toIso(doc.phoneLookupAt as Date | string) : undefined,
     tags: Array.isArray(doc.tags) ? (doc.tags as string[]) : [],
     createdAt: toIso(doc.createdAt as Date | string),
     updatedAt: toIso(doc.updatedAt as Date | string),

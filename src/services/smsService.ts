@@ -23,6 +23,12 @@ function telnyxErrorMessage(data: unknown, fallback: string): string {
 }
 
 export class SMSService {
+  static formatError(err: unknown): string {
+    if (err instanceof Error && err.message.trim()) return err.message.trim();
+    if (typeof err === 'string' && err.trim()) return err.trim();
+    return 'SMS dispatch failed';
+  }
+
   static async sendMessage(
     to: string,
     from: string,
@@ -62,7 +68,13 @@ export class SMSService {
         },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data: unknown;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        throw new Error(raw.trim() || `Telnyx SMS API error (${res.status})`);
+      }
       if (res.ok) {
         return {
           success: true,
@@ -71,10 +83,11 @@ export class SMSService {
           rawResponse: data,
         };
       }
-      throw new Error(telnyxErrorMessage(data, 'Telnyx SMS API error'));
+      throw new Error(telnyxErrorMessage(data, `Telnyx SMS API error (${res.status})`));
     } catch (err) {
-      console.error('[sms] Telnyx failed:', (err as Error).message);
-      throw err;
+      const message = SMSService.formatError(err);
+      console.error('[sms] Telnyx failed:', message);
+      throw new Error(message);
     }
   }
 

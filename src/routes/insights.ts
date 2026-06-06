@@ -7,6 +7,7 @@ import {
   getInsightByContactId,
   getOrCreateFollowUp,
 } from '../services/insightService';
+import { getContactPhoneLookup } from '../services/phoneLookupService';
 
 const router = Router();
 
@@ -55,6 +56,32 @@ router.get(
       return;
     }
     res.json(resolved);
+  })
+);
+
+router.get(
+  '/contacts/:id/phone-lookup',
+  asyncHandler(async (req, res) => {
+    const contactId = paramId(req);
+    const contact = await db.getContactById(contactId);
+    if (!contact) {
+      res.status(404).json({ error: 'Contact not found' });
+      return;
+    }
+    const refresh = req.query.refresh === '1' || req.query.refresh === 'true';
+    const result = await getContactPhoneLookup(contactId, { refresh });
+    if (!result) {
+      res.json({
+        lineType: 'unknown',
+        smsCapable: null,
+        carrierName: '',
+        phoneLookupAt: null,
+        cached: false,
+        source: 'unknown',
+      });
+      return;
+    }
+    res.json(result.lookup);
   })
 );
 

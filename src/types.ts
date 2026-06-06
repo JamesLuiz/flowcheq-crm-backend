@@ -7,6 +7,10 @@ export interface Contact {
   website: string;
   industry?: string;
   googleMapsUrl?: string;
+  lineType?: string;
+  smsCapable?: boolean | null;
+  carrierName?: string;
+  phoneLookupAt?: string;
   tags: string[];
   createdAt: string;
   updatedAt: string;

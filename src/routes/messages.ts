@@ -6,6 +6,7 @@ import { SMSService } from '../services/smsService';
 import { handleInboundSMS } from '../services/inboundSmsService';
 import { sanitizeHTML } from '../utils/sanitizer';
 import { wrapLinksInMessage } from '../services/linkTrackingService';
+import { ensureSmsCheck, isNonMobileTelnyxError } from '../services/phoneLookupService';
 import type { Contact, Conversation, Message } from '../types';
 
 const router = Router();
@@ -99,7 +100,13 @@ async function dispatchOutboundSms(
 
     return updated || message;
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'SMS dispatch failed';
+    const errorMessage = SMSService.formatError(err);
+    if (isNonMobileTelnyxError(errorMessage)) {
+      await db.updateContact(contact._id, {
+        smsCapable: false,
+        lineType: contact.lineType || 'fixed_line',
+      });
+    }
     const updated = await db.updateMessage(message._id, {
       status: 'failed',
       sendError: errorMessage,
@@ -111,7 +118,7 @@ async function dispatchOutboundSms(
 router.post(
   '/send',
   asyncHandler(async (req, res) => {
-    let { conversationId, contactId, to, content, contentType, trackLinks } = req.body;
+    let { conversationId, contactId, to, content, contentType, trackLinks, forceSend } = req.body;
 
     if (!content || !content.trim()) {
       res.status(400).json({ error: 'Message content cannot be empty.' });
@@ -129,7 +136,21 @@ router.post(
       return;
     }
 
-    const { contact, conv } = ctx;
+    let { contact, conv } = ctx;
+    contact = await ensureSmsCheck(contact);
+
+    if (!forceSend && contact.smsCapable === false) {
+      res.status(409).json({
+        error:
+          'This number does not appear SMS-capable (e.g. landline). You can still try sending via Telnyx if you believe the number is mobile.',
+        smsBlocked: true,
+        lineType: contact.lineType || 'fixed_line',
+        carrierName: contact.carrierName || '',
+        smsCapable: false,
+      });
+      return;
+    }
+
     const shouldTrackLinks = Boolean(trackLinks);
 
     const message = await db.createMessage({
@@ -184,6 +205,7 @@ router.post(
   '/:id/retry',
   asyncHandler(async (req, res) => {
     const messageId = paramId(req);
+    const forceSend = Boolean(req.body?.forceSend);
     const message = await db.getMessageById(messageId);
     if (!message) {
       res.status(404).json({ error: 'Message not found.' });
@@ -200,10 +222,23 @@ router.post(
       return;
     }
 
+    const checkedContact = await ensureSmsCheck(contact);
+    if (!forceSend && checkedContact.smsCapable === false) {
+      res.status(409).json({
+        error:
+          'This number does not appear SMS-capable (e.g. landline). You can still try sending via Telnyx if you believe the number is mobile.',
+        smsBlocked: true,
+        lineType: checkedContact.lineType || 'fixed_line',
+        carrierName: checkedContact.carrierName || '',
+        smsCapable: false,
+      });
+      return;
+    }
+
     await db.updateMessage(messageId, { status: 'pending', sendError: '' });
     const result = await dispatchOutboundSms(
       { ...message, status: 'pending', sendError: '' },
-      contact,
+      checkedContact,
       message.content,
       message.contentType
     );

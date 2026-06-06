@@ -14,6 +14,10 @@ const contactSchema = new Schema(
     website: { type: String, default: '' },
     industry: { type: String, default: '' },
     googleMapsUrl: { type: String, default: '' },
+    lineType: { type: String, default: '' },
+    smsCapable: { type: Schema.Types.Mixed, default: null },
+    carrierName: { type: String, default: '' },
+    phoneLookupAt: { type: Date },
     tags: { type: [String], default: [] },
   },
   {
