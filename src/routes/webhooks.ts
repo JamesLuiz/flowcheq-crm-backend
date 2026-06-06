@@ -4,7 +4,7 @@ import { SMSService } from '../services/smsService';
 import { handleInboundSMS } from '../services/inboundSmsService';
 import { markInsightFailed, saveInsightFromWebhook } from '../services/insightService';
 import { handleInboundCallForward } from '../services/inboundCallForwardService';
-import { inboundForwardConfigured } from '../services/telnyxCallControlService';
+import { inboundRingConfigured } from '../services/telnyxCallControlService';
 
 const router = Router();
 
@@ -19,7 +19,14 @@ async function inboundSmsHandler(req: Parameters<Parameters<typeof asyncHandler>
   } else if (body.data && (body.data as { event_type?: string }).event_type) {
     const eventType = (body.data as { event_type: string }).event_type;
     if (eventType.startsWith('call.')) {
-      res.status(200).json({ success: true, skipped: 'call event — handled by n8n voice workflow' });
+      if (inboundRingConfigured()) {
+        res.status(200).json({ ok: true });
+        handleInboundCallForward(body).catch((err) => {
+          console.error('[voice-forward] inbound webhook failed:', err instanceof Error ? err.message : err);
+        });
+        return;
+      }
+      res.status(200).json({ success: true, skipped: 'call event — voice forward not configured' });
       return;
     }
     if (eventType === 'message.received') {
@@ -59,7 +66,7 @@ router.get(
   asyncHandler(async (_req, res) => {
     const { telnyxVoiceWebhookUrl } = await import('../config');
     res.json({
-      forwardConfigured: inboundForwardConfigured(),
+      forwardConfigured: inboundRingConfigured(),
       webhookUrl: telnyxVoiceWebhookUrl(),
     });
   })
