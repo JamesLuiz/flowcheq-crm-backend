@@ -1,6 +1,5 @@
 import { config } from '../config';
 import { normalizePhoneToE164 } from '../utils/phone';
-import { TelnyxWebRTCService } from './telnyxWebRTCService';
 
 const TELNYX_API = 'https://api.telnyx.com/v2';
 
@@ -41,7 +40,8 @@ export async function hangupCall(callControlId: string): Promise<void> {
 
 export async function transferCall(callControlId: string, to: string): Promise<void> {
   const destination = normalizePhoneToE164(to);
-  await postAction(callControlId, 'transfer', { to: destination });
+  const from = normalizePhoneToE164(config.telnyx.phoneNumber);
+  await postAction(callControlId, 'transfer', { to: destination, from });
 }
 
 /** Dial an outbound leg that auto-bridges to the inbound call when answered. */
@@ -67,7 +67,7 @@ export async function dialLinkedCall(
       from,
       link_to: linkToControlId,
       timeout_secs: 45,
-      client_state: clientState,
+      client_state: Buffer.from(clientState, 'utf8').toString('base64'),
     }),
   });
 
@@ -104,7 +104,7 @@ export function humanForwardNumber(): string {
 
 export function inboundRingConfigured(): boolean {
   if (!config.telnyx.apiKey || !config.telnyx.connectionId) return false;
-  return Boolean(humanForwardNumber() || TelnyxWebRTCService.isConfigured());
+  return Boolean(humanForwardNumber());
 }
 
 /** @deprecated use inboundRingConfigured */

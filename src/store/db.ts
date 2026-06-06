@@ -310,6 +310,12 @@ class Database {
     return doc ? toMessage(doc as Record<string, unknown>) : null;
   }
 
+  async getMessageByProviderId(providerMessageId: string): Promise<Message | null> {
+    if (!providerMessageId.trim()) return null;
+    const doc = await MessageModel.findOne({ providerMessageId }).lean();
+    return doc ? toMessage(doc as Record<string, unknown>) : null;
+  }
+
   private async touchConversationForMessage(msg: {
     conversationId: string;
     direction: Message['direction'];

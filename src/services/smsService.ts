@@ -1,5 +1,6 @@
 import { config } from '../config';
 import { normalizePhoneToE164 } from '../utils/phone';
+import { extractSendTimeErrors } from './smsDeliveryService';
 
 export interface InboundSMSPayload {
   from: string;
@@ -76,6 +77,10 @@ export class SMSService {
         throw new Error(raw.trim() || `Telnyx SMS API error (${res.status})`);
       }
       if (res.ok) {
+        const immediateError = extractSendTimeErrors(data);
+        if (immediateError) {
+          throw new Error(immediateError);
+        }
         return {
           success: true,
           providerMessageId: (data as { data?: { id?: string } }).data?.id || `tlx_${Date.now()}`,

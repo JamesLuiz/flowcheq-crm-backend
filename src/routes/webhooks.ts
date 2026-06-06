@@ -5,6 +5,7 @@ import { handleInboundSMS } from '../services/inboundSmsService';
 import { markInsightFailed, saveInsightFromWebhook } from '../services/insightService';
 import { handleInboundCallForward } from '../services/inboundCallForwardService';
 import { inboundRingConfigured } from '../services/telnyxCallControlService';
+import { handleSmsDeliveryWebhook } from '../services/smsDeliveryService';
 
 const router = Router();
 
@@ -31,6 +32,12 @@ async function inboundSmsHandler(req: Parameters<Parameters<typeof asyncHandler>
     }
     if (eventType === 'message.received') {
       provider = 'telnyx';
+    } else if (eventType === 'message.finalized' || eventType === 'message.sent') {
+      res.status(200).json({ ok: true });
+      handleSmsDeliveryWebhook(body).catch((err) => {
+        console.error('[sms-delivery] webhook failed:', err instanceof Error ? err.message : err);
+      });
+      return;
     } else {
       res.status(200).json({ success: true, skipped: eventType });
       return;
@@ -54,6 +61,8 @@ router.post('/inbound', asyncHandler(inboundSmsHandler));
 router.post(
   '/telnyx/voice',
   asyncHandler(async (req, res) => {
+    const eventType = (req.body as { data?: { event_type?: string } })?.data?.event_type;
+    console.log('[voice-webhook]', eventType || 'unknown event');
     res.status(200).json({ ok: true });
     handleInboundCallForward(req.body as Record<string, unknown>).catch((err) => {
       console.error('[voice-forward] webhook handler failed:', err instanceof Error ? err.message : err);
