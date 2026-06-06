@@ -12,6 +12,7 @@ const contactSchema = new Schema(
     businessName: { type: String, default: '' },
     location: { type: String, default: '' },
     website: { type: String, default: '' },
+    industry: { type: String, default: '' },
     tags: { type: [String], default: [] },
   },
   {

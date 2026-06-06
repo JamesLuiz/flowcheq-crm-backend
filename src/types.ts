@@ -5,6 +5,7 @@ export interface Contact {
   businessName: string;
   location: string;
   website: string;
+  industry?: string;
   tags: string[];
   createdAt: string;
   updatedAt: string;

@@ -40,6 +40,7 @@ function toContact(doc: Record<string, unknown>): Contact {
     businessName: String(doc.businessName || ''),
     location: String(doc.location || ''),
     website: String(doc.website || ''),
+    industry: String(doc.industry || ''),
     tags: Array.isArray(doc.tags) ? (doc.tags as string[]) : [],
     createdAt: toIso(doc.createdAt as Date | string),
     updatedAt: toIso(doc.updatedAt as Date | string),

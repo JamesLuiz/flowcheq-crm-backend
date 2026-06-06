@@ -7,6 +7,7 @@ export interface LeadImportRow {
   phoneNumber: string;
   location: string;
   website?: string;
+  industry?: string;
   tags?: string[];
 }
 
@@ -66,6 +67,7 @@ export async function importLeads(
           businessName: string;
           location: string;
           website?: string;
+          industry?: string;
         } = {
           name: lead.name.trim(),
           businessName: (lead.businessName || lead.name).trim(),
@@ -74,6 +76,9 @@ export async function importLeads(
 
         if (website) {
           updates.website = website;
+        }
+        if (lead.industry?.trim()) {
+          updates.industry = lead.industry.trim();
         }
 
         await db.updateContact(existing._id, updates);
@@ -87,6 +92,7 @@ export async function importLeads(
         phoneNumber: lead.phoneNumber,
         location: (lead.location || '').trim(),
         website,
+        industry: (lead.industry || '').trim(),
         tags: lead.tags?.length ? lead.tags : ['Imported'],
       });
       stats.created++;
