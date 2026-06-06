@@ -6,6 +6,7 @@ export interface Contact {
   location: string;
   website: string;
   industry?: string;
+  googleMapsUrl?: string;
   tags: string[];
   createdAt: string;
   updatedAt: string;

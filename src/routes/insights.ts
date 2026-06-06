@@ -3,6 +3,7 @@ import { asyncHandler } from '../middleware/auth';
 import { db } from '../store/db';
 import {
   enrichContact,
+  getGoogleMapsLinkForContact,
   getInsightByContactId,
   getOrCreateFollowUp,
 } from '../services/insightService';
@@ -37,6 +38,23 @@ router.post(
     }
     const insight = await enrichContact(contact);
     res.json({ insight, triggered: true });
+  })
+);
+
+router.get(
+  '/contacts/:id/google-maps',
+  asyncHandler(async (req, res) => {
+    const contact = await db.getContactById(paramId(req));
+    if (!contact) {
+      res.status(404).json({ error: 'Contact not found' });
+      return;
+    }
+    const resolved = await getGoogleMapsLinkForContact(contact._id);
+    if (!resolved) {
+      res.json({ url: null, source: null, label: null });
+      return;
+    }
+    res.json(resolved);
   })
 );
 

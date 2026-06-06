@@ -7,6 +7,7 @@ import { CONTACT_TAG_OPTIONS } from '../constants/contactTags';
 import { fetchWebsiteMeta } from '../services/websiteMetaService';
 import { importLeads } from '../services/leadImportService';
 import { normalizeWebsiteUrl } from '../utils/url';
+import { normalizeGoogleMapsUrl } from '../utils/googleMaps';
 
 function paramId(req: Request): string {
   const id = req.params.id;
@@ -36,7 +37,8 @@ router.get(
 router.post(
   '/contacts',
   asyncHandler(async (req, res) => {
-    const { name, phoneNumber, businessName, location, website, tags, defaultDialCode } = req.body;
+    const { name, phoneNumber, businessName, location, website, googleMapsUrl, tags, defaultDialCode } =
+      req.body;
     if (!name || !phoneNumber) {
       res.status(400).json({ error: 'Name and unique PhoneNumber are required.' });
       return;
@@ -62,6 +64,7 @@ router.post(
         businessName: (businessName || '').trim(),
         location: (location || '').trim(),
         website: website ? normalizeWebsiteUrl(String(website)) || String(website).trim() : '',
+        googleMapsUrl: googleMapsUrl ? normalizeGoogleMapsUrl(String(googleMapsUrl)) : '',
         tags: Array.isArray(tags) ? tags.map((t: string) => t.trim()).filter(Boolean) : [],
       });
       res.status(201).json(contact);
@@ -80,7 +83,8 @@ router.put(
       res.status(404).json({ error: 'Contact not found.' });
       return;
     }
-    const { name, phoneNumber, businessName, location, website, tags, defaultDialCode } = req.body;
+    const { name, phoneNumber, businessName, location, website, googleMapsUrl, tags, defaultDialCode } =
+      req.body;
     let normalizedPhone: string | undefined;
     if (phoneNumber !== undefined) {
       try {
@@ -107,6 +111,9 @@ router.put(
     if (location !== undefined) updates.location = location.trim();
     if (website !== undefined) {
       updates.website = website ? normalizeWebsiteUrl(String(website)) || String(website).trim() : '';
+    }
+    if (googleMapsUrl !== undefined) {
+      updates.googleMapsUrl = googleMapsUrl ? normalizeGoogleMapsUrl(String(googleMapsUrl)) : '';
     }
     if (tags !== undefined && Array.isArray(tags)) {
       updates.tags = tags.map((t: string) => t.trim()).filter(Boolean);

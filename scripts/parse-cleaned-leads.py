@@ -108,6 +108,7 @@ def main() -> None:
         address = cell('Address')
         location = build_location(city, state, country, address)
         website = cell('Website')
+        maps_url = cell('Google Maps Url')
         lead = {
             'name': business,
             'businessName': business,
@@ -117,6 +118,8 @@ def main() -> None:
         }
         if website:
             lead['website'] = website
+        if maps_url:
+            lead['googleMapsUrl'] = maps_url
         leads.append(lead)
     print(json.dumps(leads))
 

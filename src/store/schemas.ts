@@ -13,6 +13,7 @@ const contactSchema = new Schema(
     location: { type: String, default: '' },
     website: { type: String, default: '' },
     industry: { type: String, default: '' },
+    googleMapsUrl: { type: String, default: '' },
     tags: { type: [String], default: [] },
   },
   {

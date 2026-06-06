@@ -10,6 +10,15 @@ const HEADER_ALIASES: Record<string, string[]> = {
   country: ['country'],
   address: ['address', 'street'],
   industry: ['industry', 'sector', 'category', 'business type', 'business category'],
+  googleMapsUrl: [
+    'google maps url',
+    'google map url',
+    'google maps uri',
+    'google map uri',
+    'maps url',
+    'google maps link',
+    'map url',
+  ],
 };
 
 function normHeader(h: string): string {
@@ -86,6 +95,8 @@ export function rowsToLeads(rows: string[][]): LeadImportRow[] {
     if (website) lead.website = website;
     const industry = cell(row, map.industry);
     if (industry) lead.industry = industry;
+    const googleMapsUrl = cell(row, map.googleMapsUrl);
+    if (googleMapsUrl) lead.googleMapsUrl = googleMapsUrl;
     leads.push(lead);
   }
   return leads;

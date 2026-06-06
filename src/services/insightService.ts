@@ -3,6 +3,7 @@ import { db } from '../store/db';
 import { ContactInsightModel } from '../store/schemas';
 import type { Contact, ContactInsight, SuggestedMessage } from '../types';
 import { triggerBusinessEnrich } from './n8nService';
+import { resolveGoogleMapsUrl } from '../utils/googleMaps';
 
 function toInsight(doc: Record<string, unknown>): ContactInsight {
   return {
@@ -101,6 +102,14 @@ export async function saveInsightFromWebhook(
     { upsert: true, new: true }
   ).lean();
 
+  const mapsUrl = String(payload.google_maps_url || '').trim();
+  if (mapsUrl) {
+    const existingContact = await db.getContactById(contactId);
+    if (!existingContact?.googleMapsUrl?.trim()) {
+      await db.updateContact(contactId, { googleMapsUrl: mapsUrl });
+    }
+  }
+
   return toInsight(doc as Record<string, unknown>);
 }
 
@@ -175,4 +184,11 @@ export async function getOrCreateFollowUp(contactId: string): Promise<string> {
     );
   }
   return message;
+}
+
+export async function getGoogleMapsLinkForContact(contactId: string) {
+  const contact = await db.getContactById(contactId);
+  if (!contact) return null;
+  const insight = await getInsightByContactId(contactId);
+  return resolveGoogleMapsUrl(contact, insight?.googleMapsUrl);
 }

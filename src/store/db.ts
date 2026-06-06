@@ -41,6 +41,7 @@ function toContact(doc: Record<string, unknown>): Contact {
     location: String(doc.location || ''),
     website: String(doc.website || ''),
     industry: String(doc.industry || ''),
+    googleMapsUrl: String(doc.googleMapsUrl || ''),
     tags: Array.isArray(doc.tags) ? (doc.tags as string[]) : [],
     createdAt: toIso(doc.createdAt as Date | string),
     updatedAt: toIso(doc.updatedAt as Date | string),

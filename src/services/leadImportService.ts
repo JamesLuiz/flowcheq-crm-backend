@@ -1,5 +1,6 @@
 import { db } from '../store/db';
 import { normalizeWebsiteUrl } from '../utils/url';
+import { normalizeGoogleMapsUrl } from '../utils/googleMaps';
 
 export interface LeadImportRow {
   name: string;
@@ -8,6 +9,7 @@ export interface LeadImportRow {
   location: string;
   website?: string;
   industry?: string;
+  googleMapsUrl?: string;
   tags?: string[];
 }
 
@@ -55,6 +57,7 @@ export async function importLeads(
 
       const existing = await db.getContactByPhoneNumber(lead.phoneNumber);
       const website = normalizeWebsite(lead.website);
+      const googleMapsUrl = normalizeGoogleMapsUrl(lead.googleMapsUrl);
 
       if (existing) {
         if (!updateExisting) {
@@ -68,6 +71,7 @@ export async function importLeads(
           location: string;
           website?: string;
           industry?: string;
+          googleMapsUrl?: string;
         } = {
           name: lead.name.trim(),
           businessName: (lead.businessName || lead.name).trim(),
@@ -79,6 +83,9 @@ export async function importLeads(
         }
         if (lead.industry?.trim()) {
           updates.industry = lead.industry.trim();
+        }
+        if (googleMapsUrl) {
+          updates.googleMapsUrl = googleMapsUrl;
         }
 
         await db.updateContact(existing._id, updates);
@@ -93,6 +100,7 @@ export async function importLeads(
         location: (lead.location || '').trim(),
         website,
         industry: (lead.industry || '').trim(),
+        googleMapsUrl,
         tags: lead.tags?.length ? lead.tags : ['Imported'],
       });
       stats.created++;
