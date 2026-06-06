@@ -4,8 +4,11 @@ import type { Contact } from '../types';
 import { wrapLinksInMessage } from './linkTrackingService';
 import { SMSService } from './smsService';
 import { getInsightByContactId } from './insightService';
-
-const CONSULTATION_URL = () => config.campaign.consultationUrl;
+import {
+  applyMergeFields,
+  ensureConsultationLink,
+  consultationUrl,
+} from '../utils/campaignMessage';
 
 export interface BulkSendResult {
   sent: number;
@@ -14,33 +17,78 @@ export interface BulkSendResult {
   results: { contactId: string; status: 'sent' | 'failed' | 'skipped'; error?: string }[];
 }
 
-function ensureConsultationLink(text: string): string {
-  const url = CONSULTATION_URL();
-  if (text.includes(url)) return text;
-  return `${text.trim()}\n\nBook your consultation: ${url}`;
+export interface BulkCampaignOptions {
+  contactIds?: string[];
+  /** Only send to contacts that have at least one of these tags */
+  tagFilter?: string[];
+  messageTemplate?: string;
+  useAiMessages?: boolean;
+  /** When false, same template text for every contact (no merge fields) */
+  personalizeTemplate?: boolean;
+  trackLinks?: boolean;
+  includeConsultationUrl?: boolean;
+}
+
+export interface CampaignPreviewResult {
+  message: string;
+  contactId: string;
+  contactName: string;
+  consultationUrl: string;
 }
 
 async function resolveMessageForContact(
   contact: Contact,
-  template?: string,
-  useAiMessage?: boolean
+  options: BulkCampaignOptions
 ): Promise<string> {
-  if (template?.trim()) return ensureConsultationLink(template);
+  const includeConsult = options.includeConsultationUrl !== false;
+  const template = options.messageTemplate?.trim();
+  const useAi = options.useAiMessages !== false;
 
-  if (useAiMessage) {
+  if (useAi) {
     const insight = await getInsightByContactId(contact._id);
     const aiText = insight?.suggestedMessages?.[0]?.text;
-    if (aiText?.trim()) return ensureConsultationLink(aiText);
+    if (aiText?.trim()) {
+      return ensureConsultationLink(aiText, includeConsult);
+    }
+  }
+
+  if (template) {
+    const body =
+      options.personalizeTemplate !== false ?
+        applyMergeFields(template, contact)
+      : template;
+    return ensureConsultationLink(body, includeConsult);
   }
 
   return ensureConsultationLink(
-    `Hi ${contact.name}, Flowcheq helps ${contact.businessName || contact.name} turn conversations into booked consultations.`
+    applyMergeFields(
+      `Hi {{name}}, Flowcheq helps {{businessName}} turn conversations into booked consultations.`,
+      contact
+    ),
+    includeConsult
   );
 }
 
-async function sendTrackedSms(
+function resolveTargets(all: Contact[], options: BulkCampaignOptions): Contact[] {
+  let targets = all;
+
+  if (options.contactIds?.length) {
+    const idSet = new Set(options.contactIds);
+    targets = targets.filter((c) => idSet.has(c._id));
+  }
+
+  if (options.tagFilter?.length) {
+    const tags = new Set(options.tagFilter);
+    targets = targets.filter((c) => (c.tags || []).some((t) => tags.has(t)));
+  }
+
+  return targets;
+}
+
+async function sendCampaignSms(
   contact: Contact,
-  content: string
+  content: string,
+  trackLinks: boolean
 ): Promise<{ ok: boolean; error?: string; messageId?: string }> {
   let conv = await db.getConversationByContactId(contact._id);
   if (!conv) {
@@ -61,19 +109,21 @@ async function sendTrackedSms(
     read: true,
     providerMessageId: '',
     status: 'pending',
-    trackLinks: true,
+    trackLinks,
   });
 
-  let outbound = await wrapLinksInMessage({
-    content,
-    contentType: 'text',
-    messageId: message._id,
-    contactId: contact._id,
-    conversationId: conv._id,
-  });
-
-  if (outbound !== content) {
-    await db.updateMessage(message._id, { content: outbound });
+  let outbound = content;
+  if (trackLinks) {
+    outbound = await wrapLinksInMessage({
+      content,
+      contentType: 'text',
+      messageId: message._id,
+      contactId: contact._id,
+      conversationId: conv._id,
+    });
+    if (outbound !== content) {
+      await db.updateMessage(message._id, { content: outbound });
+    }
   }
 
   const fromNumber = config.sms.fromNumber;
@@ -96,16 +146,40 @@ async function sendTrackedSms(
   }
 }
 
-export async function bulkSendCampaign(options: {
-  contactIds?: string[];
+export async function previewCampaignMessage(options: {
+  contactId?: string;
   messageTemplate?: string;
   useAiMessages?: boolean;
-}): Promise<BulkSendResult> {
+  personalizeTemplate?: boolean;
+  includeConsultationUrl?: boolean;
+}): Promise<CampaignPreviewResult | null> {
   const all = await db.getContacts();
-  const targets =
-    options.contactIds?.length ?
-      all.filter((c) => options.contactIds!.includes(c._id))
-    : all;
+  const contact =
+    (options.contactId ? all.find((c) => c._id === options.contactId) : null) ||
+    all.find((c) => c.phoneNumber?.trim()) ||
+    all[0];
+
+  if (!contact) return null;
+
+  const message = await resolveMessageForContact(contact, {
+    messageTemplate: options.messageTemplate,
+    useAiMessages: options.useAiMessages,
+    personalizeTemplate: options.personalizeTemplate,
+    includeConsultationUrl: options.includeConsultationUrl,
+  });
+
+  return {
+    message,
+    contactId: contact._id,
+    contactName: contact.name,
+    consultationUrl: consultationUrl(),
+  };
+}
+
+export async function bulkSendCampaign(options: BulkCampaignOptions): Promise<BulkSendResult> {
+  const all = await db.getContacts();
+  const targets = resolveTargets(all, options);
+  const trackLinks = options.trackLinks !== false;
 
   const result: BulkSendResult = { sent: 0, failed: 0, skipped: 0, results: [] };
 
@@ -116,8 +190,8 @@ export async function bulkSendCampaign(options: {
       continue;
     }
 
-    const text = await resolveMessageForContact(contact, options.messageTemplate, options.useAiMessages);
-    const outcome = await sendTrackedSms(contact, text);
+    const text = await resolveMessageForContact(contact, options);
+    const outcome = await sendCampaignSms(contact, text, trackLinks);
     if (outcome.ok) {
       result.sent++;
       result.results.push({ contactId: contact._id, status: 'sent' });
@@ -128,4 +202,9 @@ export async function bulkSendCampaign(options: {
   }
 
   return result;
+}
+
+export async function countCampaignTargets(options: BulkCampaignOptions): Promise<number> {
+  const all = await db.getContacts();
+  return resolveTargets(all, options).filter((c) => c.phoneNumber?.trim()).length;
 }
