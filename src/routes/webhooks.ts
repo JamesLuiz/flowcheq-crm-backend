@@ -3,6 +3,8 @@ import { asyncHandler, requireWebhookSecret } from '../middleware/auth';
 import { SMSService } from '../services/smsService';
 import { handleInboundSMS } from '../services/inboundSmsService';
 import { markInsightFailed, saveInsightFromWebhook } from '../services/insightService';
+import { handleInboundCallForward } from '../services/inboundCallForwardService';
+import { inboundForwardConfigured } from '../services/telnyxCallControlService';
 
 const router = Router();
 
@@ -40,6 +42,28 @@ async function inboundSmsHandler(req: Parameters<Parameters<typeof asyncHandler>
 }
 
 router.post('/inbound', asyncHandler(inboundSmsHandler));
+
+/** Inbound Call Control events — forward to HUMAN_FORWARD_NUMBER (no n8n required). */
+router.post(
+  '/telnyx/voice',
+  asyncHandler(async (req, res) => {
+    res.status(200).json({ ok: true });
+    handleInboundCallForward(req.body as Record<string, unknown>).catch((err) => {
+      console.error('[voice-forward] webhook handler failed:', err instanceof Error ? err.message : err);
+    });
+  })
+);
+
+router.get(
+  '/telnyx/voice/status',
+  asyncHandler(async (_req, res) => {
+    const { telnyxVoiceWebhookUrl } = await import('../config');
+    res.json({
+      forwardConfigured: inboundForwardConfigured(),
+      webhookUrl: telnyxVoiceWebhookUrl(),
+    });
+  })
+);
 
 router.post(
   '/insights',

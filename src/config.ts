@@ -34,6 +34,8 @@ export const config = {
     webrtcConnectionId: process.env.TELNYX_WEBRTC_CONNECTION_ID || '',
     webrtcCredentialId: process.env.TELNYX_WEBRTC_CREDENTIAL_ID || '',
     webhookBaseUrl: process.env.TELNYX_WEBHOOK_BASE_URL || process.env.APP_URL || '',
+    /** E.164 mobile to ring on inbound calls (Call Control forward) */
+    humanForwardNumber: process.env.HUMAN_FORWARD_NUMBER || '',
   },
   n8n: {
     outboundCallWebhook: process.env.N8N_OUTBOUND_CALL_WEBHOOK || '',
@@ -77,4 +79,9 @@ export function telnyxConfigured(): boolean {
 export function telnyxSmsWebhookUrl(): string {
   const base = (config.telnyx.webhookBaseUrl || config.appUrl).replace(/\/$/, '');
   return `${base}/webhook/inbound`;
+}
+
+export function telnyxVoiceWebhookUrl(): string {
+  const base = (config.telnyx.webhookBaseUrl || config.appUrl).replace(/\/$/, '');
+  return `${base}/webhook/telnyx/voice`;
 }
