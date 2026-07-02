@@ -5,7 +5,7 @@ import { handleInboundSMS } from '../services/inboundSmsService';
 import { markInsightFailed, saveInsightFromWebhook } from '../services/insightService';
 import { handleInboundCallForward } from '../services/inboundCallForwardService';
 import { inboundRingConfigured } from '../services/telnyxCallControlService';
-import { handleSmsDeliveryWebhook } from '../services/smsDeliveryService';
+import { handleSmsDeliveryWebhook, handleTwilioStatusWebhook } from '../services/smsDeliveryService';
 
 const router = Router();
 
@@ -15,7 +15,15 @@ async function inboundSmsHandler(req: Parameters<Parameters<typeof asyncHandler>
   const body = req.body as Record<string, unknown>;
   let provider: 'twilio' | 'telnyx' | 'generic' = 'generic';
 
-  if (body.AccountSid && body.MessageSid) {
+  if (body.AccountSid && (body.MessageSid || body.SmsSid)) {
+    // Status callback (no Body) vs inbound SMS — both are form-encoded from Twilio
+    if (!body.Body && (body.MessageStatus || body.SmsStatus)) {
+      res.type('text/xml').status(200).send('<Response></Response>');
+      handleTwilioStatusWebhook(body).catch((err) => {
+        console.error('[sms-delivery] Twilio status webhook failed:', err instanceof Error ? err.message : err);
+      });
+      return;
+    }
     provider = 'twilio';
   } else if (body.data && (body.data as { event_type?: string }).event_type) {
     const eventType = (body.data as { event_type: string }).event_type;
@@ -46,12 +54,23 @@ async function inboundSmsHandler(req: Parameters<Parameters<typeof asyncHandler>
 
   const normalized = SMSService.normalizeInbound(body, provider);
   if (!normalized.from || !normalized.text) {
+    if (provider === 'twilio') {
+      // e.g. media-only MMS — acknowledge with empty TwiML so Twilio doesn't retry
+      console.warn('[webhook] Twilio inbound without text body — skipped');
+      res.type('text/xml').status(200).send('<Response></Response>');
+      return;
+    }
     res.status(400).json({ error: 'Incomplete webhook body.' });
     return;
   }
 
   const isHTML = normalized.text.includes('<') && normalized.text.includes('>');
   const outcome = await handleInboundSMS(normalized, isHTML ? 'html' : 'text');
+  if (provider === 'twilio') {
+    // Twilio expects TwiML; empty <Response> means "no auto-reply"
+    res.type('text/xml').status(200).send('<Response></Response>');
+    return;
+  }
   res.status(200).json({ success: true, messageId: outcome.message._id });
 }
 

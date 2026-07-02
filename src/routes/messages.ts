@@ -2,7 +2,7 @@ import { Router, type Request } from 'express';
 import { config } from '../config';
 import { db } from '../store/db';
 import { asyncHandler } from '../middleware/auth';
-import { SMSService } from '../services/smsService';
+import { SMSService, resolveSmsProvider, smsProvidersStatus } from '../services/smsService';
 import { handleInboundSMS } from '../services/inboundSmsService';
 import { sanitizeHTML } from '../utils/sanitizer';
 import { wrapLinksInMessage } from '../services/linkTrackingService';
@@ -69,14 +69,16 @@ async function dispatchOutboundSms(
   message: Message,
   contact: Contact,
   content: string,
-  contentType: 'text' | 'html'
+  contentType: 'text' | 'html',
+  provider?: string
 ): Promise<Message> {
   const fromNumber = config.sms.fromNumber;
   try {
-    const sendResult = await SMSService.sendMessage(contact.phoneNumber, fromNumber, content, contentType);
+    const sendResult = await SMSService.sendMessage(contact.phoneNumber, fromNumber, content, contentType, provider);
     const updated = await db.updateMessage(message._id, {
       status: 'sent',
       providerMessageId: sendResult.providerMessageId,
+      provider: sendResult.provider,
       sendError: '',
     });
     await db.updateConversation(message.conversationId, {
@@ -115,10 +117,17 @@ async function dispatchOutboundSms(
   }
 }
 
+router.get(
+  '/providers',
+  asyncHandler(async (_req, res) => {
+    res.json(smsProvidersStatus());
+  })
+);
+
 router.post(
   '/send',
   asyncHandler(async (req, res) => {
-    let { conversationId, contactId, to, content, contentType, trackLinks, forceSend } = req.body;
+    let { conversationId, contactId, to, content, contentType, trackLinks, forceSend, provider } = req.body;
 
     if (!content || !content.trim()) {
       res.status(400).json({ error: 'Message content cannot be empty.' });
@@ -161,6 +170,7 @@ router.post(
       contentType: resolvedContentType,
       read: true,
       providerMessageId: '',
+      provider: resolveSmsProvider(provider) || '',
       status: 'pending',
       trackLinks: shouldTrackLinks,
     });
@@ -185,7 +195,8 @@ router.post(
       { ...message, content: outboundContent },
       contact,
       outboundContent,
-      resolvedContentType
+      resolvedContentType,
+      provider
     );
 
     if (result.status === 'failed') {
@@ -206,6 +217,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const messageId = paramId(req);
     const forceSend = Boolean(req.body?.forceSend);
+    const provider = typeof req.body?.provider === 'string' ? req.body.provider : undefined;
     const message = await db.getMessageById(messageId);
     if (!message) {
       res.status(404).json({ error: 'Message not found.' });
@@ -240,7 +252,8 @@ router.post(
       { ...message, status: 'pending', sendError: '' },
       checkedContact,
       message.content,
-      message.contentType
+      message.contentType,
+      provider || message.provider
     );
 
     if (result.status === 'failed') {

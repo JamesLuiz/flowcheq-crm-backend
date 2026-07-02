@@ -82,6 +82,7 @@ function toMessage(doc: Record<string, unknown>): Message {
     contentType: (doc.contentType as Message['contentType']) || 'text',
     read: Boolean(doc.read),
     providerMessageId: String(doc.providerMessageId || ''),
+    provider: doc.provider ? String(doc.provider) : undefined,
     status,
     sendError: doc.sendError ? String(doc.sendError) : undefined,
     trackLinks: doc.trackLinks === true ? true : undefined,

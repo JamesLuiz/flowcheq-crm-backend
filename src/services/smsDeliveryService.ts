@@ -65,6 +65,43 @@ export async function handleSmsDeliveryWebhook(body: Record<string, unknown>): P
   console.error(`[sms-delivery] Message ${message._id} failed: ${sendError}`);
 }
 
+/**
+ * Apply a Twilio status callback (form-encoded) to our outbound message row.
+ * Twilio POSTs MessageSid + MessageStatus, plus ErrorCode when the status is
+ * failed/undelivered: https://www.twilio.com/docs/messaging/api/message-resource#statuscallback-property
+ */
+export async function handleTwilioStatusWebhook(body: Record<string, unknown>): Promise<void> {
+  const sid = String(body.MessageSid || body.SmsSid || '');
+  const status = String(body.MessageStatus || body.SmsStatus || '');
+  if (!sid || !status) {
+    console.warn('[sms-delivery] Twilio status callback missing MessageSid/MessageStatus — ignored');
+    return;
+  }
+
+  const message = await db.getMessageByProviderId(sid);
+  if (!message) {
+    console.warn(`[sms-delivery] Twilio status "${status}" for unknown message ${sid} — ignored`);
+    return;
+  }
+
+  if (status === 'failed' || status === 'undelivered') {
+    const { twilioErrorText } = await import('./smsService');
+    const fallback =
+      status === 'undelivered'
+        ? 'Twilio: message sent but the carrier could not deliver it.'
+        : 'Twilio: message failed before reaching the carrier.';
+    const sendError = twilioErrorText(body.ErrorCode as string | number | undefined, fallback);
+    if (message.status === 'failed' && message.sendError === sendError) return;
+    await db.updateMessage(message._id, { status: 'failed', sendError });
+    console.error(`[sms-delivery] Message ${message._id} ${status}: ${sendError}`);
+    return;
+  }
+
+  if (status === 'delivered' && message.status === 'pending') {
+    await db.updateMessage(message._id, { status: 'sent', sendError: '' });
+  }
+}
+
 export function extractSendTimeErrors(data: unknown): string | null {
   const payload = (data as { data?: { errors?: TelnyxMsgError[]; to?: { status?: string }[] } }).data;
   if (!payload) return null;

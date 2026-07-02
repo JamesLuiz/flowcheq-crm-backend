@@ -25,6 +25,13 @@ export const config = {
       process.env.MONGO_URI ||
       'mongodb://localhost:27017/voice_calls',
   },
+  twilio: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+    authToken: process.env.TWILIO_AUTH_TOKEN || '',
+    phoneNumber: process.env.TWILIO_PHONE_NUMBER || '',
+    /** Optional: send via a Messaging Service instead of a single number */
+    messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID || '',
+  },
   telnyx: {
     apiKey: process.env.TELNYX_API_KEY || '',
     phoneNumber: process.env.TELNYX_PHONE_NUMBER || '',
@@ -69,11 +76,21 @@ export const config = {
   sms: {
     simulateReplies: process.env.SMS_SIMULATE_REPLIES === 'true',
     fromNumber: process.env.TELNYX_PHONE_NUMBER || '+18449997700',
+    /** Default outbound SMS provider when the frontend doesn't specify one */
+    defaultProvider: (process.env.SMS_PROVIDER || 'telnyx') as 'telnyx' | 'twilio',
   },
 };
 
 export function telnyxConfigured(): boolean {
   return Boolean(config.telnyx.apiKey && config.telnyx.phoneNumber);
+}
+
+export function twilioConfigured(): boolean {
+  return Boolean(
+    config.twilio.accountSid &&
+      config.twilio.authToken &&
+      (config.twilio.phoneNumber || config.twilio.messagingServiceSid)
+  );
 }
 
 export function telnyxSmsWebhookUrl(): string {

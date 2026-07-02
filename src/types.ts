@@ -35,6 +35,8 @@ export interface Message {
   contentType: 'text' | 'html';
   read: boolean;
   providerMessageId: string;
+  /** SMS service that dispatched this message (telnyx | twilio | simulator) */
+  provider?: string;
   status?: 'pending' | 'sent' | 'failed';
   sendError?: string;
   trackLinks?: boolean;

@@ -37,6 +37,8 @@ export function createApp(): Express {
   });
 
   app.use(express.json());
+  // Twilio webhooks post application/x-www-form-urlencoded
+  app.use(express.urlencoded({ extended: false }));
 
   app.use((req, _res, next) => {
     console.log(`[API] ${req.method} ${req.url}`);
@@ -45,13 +47,14 @@ export function createApp(): Express {
 
   app.get('/api/health', async (_req, res) => {
     const mongoose = await import('mongoose');
-    const { telnyxConfigured, telnyxSmsWebhookUrl, telnyxVoiceWebhookUrl } = await import('./config');
+    const { telnyxConfigured, twilioConfigured, telnyxSmsWebhookUrl, telnyxVoiceWebhookUrl } = await import('./config');
     const { inboundRingConfigured } = await import('./services/telnyxCallControlService');
     res.json({
       status: 'ok',
       serverTime: new Date().toISOString(),
       db: mongoose.default.connection.readyState === 1 ? 'connected' : 'disconnected',
       telnyxSms: telnyxConfigured(),
+      twilioSms: twilioConfigured(),
       inboundWebhook: telnyxSmsWebhookUrl(),
       voiceForward: inboundRingConfigured(),
       voiceWebhook: telnyxVoiceWebhookUrl(),

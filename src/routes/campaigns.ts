@@ -55,6 +55,7 @@ router.post(
       personalizeTemplate,
       trackLinks,
       includeConsultationUrl,
+      provider,
     } = req.body as {
       contactIds?: string[];
       tagFilter?: string[];
@@ -63,6 +64,7 @@ router.post(
       personalizeTemplate?: boolean;
       trackLinks?: boolean;
       includeConsultationUrl?: boolean;
+      provider?: string;
     };
 
     const result = await bulkSendCampaign({
@@ -73,6 +75,7 @@ router.post(
       personalizeTemplate,
       trackLinks,
       includeConsultationUrl,
+      provider,
     });
 
     res.json({

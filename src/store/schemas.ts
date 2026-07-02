@@ -54,6 +54,7 @@ const messageSchema = new Schema(
     contentType: { type: String, enum: ['text', 'html'], default: 'text' },
     read: { type: Boolean, default: false },
     providerMessageId: { type: String, default: '' },
+    provider: { type: String, default: '' },
     status: { type: String, enum: ['pending', 'sent', 'failed'], default: 'sent' },
     sendError: { type: String, default: '' },
     trackLinks: { type: Boolean, default: false },

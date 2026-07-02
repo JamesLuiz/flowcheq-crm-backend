@@ -27,6 +27,8 @@ export interface BulkCampaignOptions {
   personalizeTemplate?: boolean;
   trackLinks?: boolean;
   includeConsultationUrl?: boolean;
+  /** SMS provider override (telnyx | twilio) */
+  provider?: string;
 }
 
 export interface CampaignPreviewResult {
@@ -88,7 +90,8 @@ function resolveTargets(all: Contact[], options: BulkCampaignOptions): Contact[]
 async function sendCampaignSms(
   contact: Contact,
   content: string,
-  trackLinks: boolean
+  trackLinks: boolean,
+  provider?: string
 ): Promise<{ ok: boolean; error?: string; messageId?: string }> {
   let conv = await db.getConversationByContactId(contact._id);
   if (!conv) {
@@ -128,10 +131,11 @@ async function sendCampaignSms(
 
   const fromNumber = config.sms.fromNumber;
   try {
-    const result = await SMSService.sendMessage(contact.phoneNumber, fromNumber, outbound, 'text');
+    const result = await SMSService.sendMessage(contact.phoneNumber, fromNumber, outbound, 'text', provider);
     await db.updateMessage(message._id, {
       status: 'sent',
       providerMessageId: result.providerMessageId,
+      provider: result.provider,
       sendError: '',
     });
     await db.updateConversation(conv._id, {
@@ -191,7 +195,7 @@ export async function bulkSendCampaign(options: BulkCampaignOptions): Promise<Bu
     }
 
     const text = await resolveMessageForContact(contact, options);
-    const outcome = await sendCampaignSms(contact, text, trackLinks);
+    const outcome = await sendCampaignSms(contact, text, trackLinks, options.provider);
     if (outcome.ok) {
       result.sent++;
       result.results.push({ contactId: contact._id, status: 'sent' });
